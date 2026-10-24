@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>鍵上樂理</title>
+  <meta name="description" content="以 MIDI 鍵盤學習樂理、指法與和弦的成人互動課程">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232f5bd3'/><rect x='6' y='7' width='5' height='18' rx='1.5' fill='white'/><rect x='13.5' y='7' width='5' height='18' rx='1.5' fill='white'/><rect x='21' y='7' width='5' height='18' rx='1.5' fill='white'/><rect x='9.5' y='7' width='3.5' height='11' rx='1' fill='%23111'/><rect x='17' y='7' width='3.5' height='11' rx='1' fill='%23111'/></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" id="brand" type="button" aria-label="回首頁">
+      <span class="brand-mark" aria-hidden="true"></span>鍵上樂理
+    </button>
+    <div class="topbar-right">
+      <span class="pill" id="midi-status">MIDI：偵測中…</span>
+      <button class="icon-btn" id="settings-btn" type="button" aria-label="設定">設定</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main id="view" class="view" aria-live="polite"></main>
+
+  <section class="kb-wrap" aria-label="琴鍵">
+    <div class="kb-meta">
+      <span id="kb-hint">可用 MIDI 鍵盤、電腦鍵盤（Z–M、Q–I 兩排）或滑鼠彈奏</span>
+      <span id="kb-now" class="kb-now" aria-live="off"></span>
+    </div>
+    <div id="keyboard" class="keyboard"></div>
+  </section>
+
+  <dialog id="settings" class="dialog">
+    <form method="dialog" class="dialog-body">
+      <h2>設定</h2>
+      <label class="row-toggle">
+        <input type="checkbox" id="set-echo">
+        <span><b>MIDI 彈奏回聲</b><small>鍵盤本身有聲音時可關閉，避免重疊。電腦鍵盤與滑鼠一律發聲。</small></span>
+      </label>
+      <label class="row-toggle">
+        <input type="checkbox" id="set-solfege">
+        <span><b>顯示唱名</b><small>在音名旁加上 Do Re Mi。</small></span>
+      </label>
+      <div class="row-btns">
+        <button type="button" class="btn" id="set-calibrate">重新校準 MIDI 鍵盤</button>
+        <button type="button" class="btn" id="set-export">匯出進度</button>
+        <label class="btn">匯入進度<input type="file" id="set-import" accept="application/json" hidden></label>
+        <button type="button" class="btn btn-danger" id="set-reset">清除所有進度</button>
+      </div>
+      <div class="dialog-foot"><button class="btn btn-primary" value="close">完成</button></div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
