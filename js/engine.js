@@ -1,10 +1,14 @@
 // Lesson runner: plays a lesson's five segments (warm-up, new concept, guided
 // practice, piece, summary) step by step, grades input and records progress.
-import { noteName, notesOfClass, pc, sci } from './notes.js';
+// Also runs the standalone daily review, a one-segment "lesson".
+import { fullName, letter, noteName, notesOfClass, octave, pc, sci } from './notes.js';
 import { wait } from './audio.js';
+import { icon, star } from './icons.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 
-const SEGMENT_NAMES = { warmup: '暖身複習', concept: '新概念', practice: '引導練習', piece: '實際曲目', summary: '總結評分' };
+export const SEGMENT_NAMES = {
+  warmup: '暖身複習', concept: '新概念', practice: '引導練習', piece: '實際曲目', summary: '總結評分', review: '今日複習',
+};
 
 export function starsFor(acc) {
   if (acc >= 0.95) return 3;
@@ -13,8 +17,10 @@ export function starsFor(acc) {
   return 0;
 }
 
-export function starsHtml(n, max = 3) {
-  return `<span class="stars" aria-label="${n} 顆星">${'★'.repeat(n)}<span class="off">${'★'.repeat(max - n)}</span></span>`;
+export function starsHtml(n, max = 3, cls = '') {
+  let s = '';
+  for (let i = 0; i < max; i++) s += star(i < n);
+  return `<span class="stars ${cls}" role="img" aria-label="${n} 顆星（滿分 ${max}）">${s}</span>`;
 }
 
 const conceptName = (id) => CONCEPTS[id]?.name || id;
@@ -22,8 +28,8 @@ const conceptName = (id) => CONCEPTS[id]?.name || id;
 class Aborted extends Error {}
 
 export class LessonRunner {
-  constructor({ root, lesson, hub, kb, piano, store, onExit }) {
-    Object.assign(this, { root, lesson, hub, kb, piano, store, onExit });
+  constructor({ root, lesson, hub, kb, piano, store, onExit, nextLesson = null }) {
+    Object.assign(this, { root, lesson, hub, kb, piano, store, onExit, nextLesson });
     this.ctrl = new AbortController();
     this.signal = this.ctrl.signal;
     this.segResults = [];
@@ -35,9 +41,10 @@ export class LessonRunner {
     try {
       const segs = this.lesson.segments;
       for (let i = startSegment; i < segs.length; i++) {
-        this.store.updateLesson(this.lesson.id, { segment: i });
+        if (!this.lesson.isReview) this.store.updateLesson(this.lesson.id, { segment: i });
         const result = await this.#runSegment(i);
         this.segResults[i] = result;
+        if (this.lesson.isReview) return await this.#finishReview(result);
         if (segs[i].graded && segs[i].kind !== 'summary') await this.#showSegmentResult(i, result);
       }
       await this.#finish();
@@ -58,24 +65,32 @@ export class LessonRunner {
   // ---------- shell ----------
 
   #renderShell() {
+    const segs = this.lesson.segments;
+    const name = this.lesson.isReview ? this.lesson.title : `第 ${this.lesson.num} 課　${this.lesson.title}`;
     this.root.innerHTML = `
       <div class="lesson-head">
-        <button class="btn btn-ghost" data-act="exit" title="進度會保留在目前這一段">← 離開</button>
-        <div class="seg-track">${this.lesson.segments.map(() => '<div class="seg"></div>').join('')}</div>
+        <button class="btn btn-ghost btn-icon-text" data-act="exit" title="進度會保留在目前這一段">${icon.back()}離開</button>
+        <h1 class="lesson-name">${name}</h1>
+      </div>
+      <div class="seg-row">
+        ${segs.length > 1 ? `<ol class="seg-track" aria-label="課程進度">${segs.map((s) => `<li class="seg"><span>${SEGMENT_NAMES[s.kind]}</span></li>`).join('')}</ol>` : ''}
         <span class="seg-label"></span>
       </div>
-      <div class="card stage"></div>`;
+      <section class="stage" aria-labelledby="stage-title"></section>`;
     this.root.querySelector('[data-act="exit"]').onclick = () => this.exit();
     this.stage = this.root.querySelector('.stage');
   }
 
-  #setSegment(i) {
+  #setSegment(i, allDone = false) {
     const seg = this.lesson.segments[i];
     this.root.querySelectorAll('.seg').forEach((el, j) => {
-      el.className = `seg ${j < i ? 'done' : j === i ? 'cur' : ''}`;
+      el.className = `seg ${allDone || j < i ? 'done' : j === i ? 'cur' : ''}`;
+      if (j === i && !allDone) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
     });
-    this.root.querySelector('.seg-label').textContent =
-      `第 ${i + 1}/5 段 · ${SEGMENT_NAMES[seg.kind]} · 約 ${seg.minutes} 分鐘`;
+    const label = this.root.querySelector('.seg-label');
+    if (allDone) label.textContent = '全部完成';
+    else if (this.lesson.isReview) label.textContent = `約 ${seg.minutes} 分鐘`;
+    else label.textContent = `第 ${i + 1}/${this.lesson.segments.length} 段 · 約 ${seg.minutes} 分鐘`;
   }
 
   #startPracticeClock() {
@@ -98,7 +113,7 @@ export class LessonRunner {
       const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 3);
       if (due.length) {
         steps = [
-          { type: 'explain', title: '暖身複習', body: `<p>先複習上次比較不熟的地方：<b>${due.map(conceptName).join('、')}</b>。</p><p class="muted">系統會依你的答題紀錄，自動安排要複習的內容。</p>` },
+          { type: 'explain', title: '先複習上次不熟的地方', body: `<p>今天的暖身：<b>${due.map(conceptName).join('、')}</b>。</p><p class="muted">系統依你的答題紀錄自動安排複習：答錯的概念很快會再出現，答對的會隔越來越久。</p>` },
           ...due.flatMap((id) => reviewSteps(id)),
         ];
       }
@@ -123,14 +138,26 @@ export class LessonRunner {
 
   async #showSegmentResult(i, r) {
     const seg = this.lesson.segments[i];
+    const next = SEGMENT_NAMES[this.lesson.segments[i + 1].kind];
+    const c = seg.celebrate;
     this.stage.innerHTML = `
-      <div class="stage-kicker">${SEGMENT_NAMES[seg.kind]} 完成</div>
-      <div class="result-grid">
-        <div><div class="result-big">${Math.round(r.acc * 100)}%</div><small>一次就彈對的比例</small></div>
-        <div><div class="result-stars">${starsHtml(r.stars)}</div><small>本段星等</small></div>
-      </div>
-      ${weakHtml(r.misses)}
-      <div class="footer-actions"><button class="btn btn-primary btn-lg" data-act="next">下一段：${SEGMENT_NAMES[this.lesson.segments[i + 1].kind]} →</button></div>`;
+      <div class="result ${c ? 'result-celebrate' : ''}">
+        ${c ? `<div class="staff-rule" aria-hidden="true"></div>` : ''}
+        <h2 id="stage-title">${c ? c.title : `${SEGMENT_NAMES[seg.kind]}完成`}</h2>
+        ${c ? `<p class="lead">${c.body}</p>` : ''}
+        <div class="result-score">
+          ${starsHtml(r.stars, 3, 'stars-xl pop')}
+          <p class="result-pct">一次就彈對 <b>${Math.round(r.acc * 100)}%</b></p>
+        </div>
+        ${weakHtml(r.misses)}
+        <div class="footer-actions">
+          ${c ? `<button class="btn" data-act="replay">${icon.play()}聽一次這首曲子</button>` : ''}
+          <span class="spacer"></span>
+          <button class="btn btn-primary btn-lg" data-act="next">下一段：${next}${icon.next()}</button>
+        </div>
+      </div>`;
+    const replay = this.stage.querySelector('[data-act="replay"]');
+    if (replay) replay.onclick = () => this.#demo(c.song, { bpm: c.bpm || 100 });
     await this.#click(this.stage.querySelector('[data-act="next"]'));
   }
 
@@ -145,37 +172,66 @@ export class LessonRunner {
       bestStars: Math.max(prev.bestStars, stars),
       lastStars: stars,
     });
+    this.#setSegment(this.lesson.segments.length - 1, true);
     const allMisses = this.segResults.filter(Boolean).flatMap((r) => r.misses);
-    const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]);
+    const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 3);
     const rows = this.lesson.segments.map((s, i) => {
       const r = this.segResults[i];
       if (!s.graded || !r) return '';
-      return `<li>${SEGMENT_NAMES[s.kind]}：${Math.round(r.acc * 100)}% ${starsHtml(r.stars)}</li>`;
+      return `<tr><th scope="row">${SEGMENT_NAMES[s.kind]}</th><td>${Math.round(r.acc * 100)}%</td><td>${starsHtml(r.stars)}</td></tr>`;
     }).join('');
+    const nextLine = !passed
+      ? '需要 <b>1 顆星</b>（正確率 70%）才能解鎖下一課。再挑戰一次總結測驗吧，只要 5 分鐘。'
+      : this.nextLesson?.segments
+        ? `已解鎖第 ${this.nextLesson.num} 課〈${this.nextLesson.title}〉。`
+        : `第 ${this.lesson.num + 1} 課製作中。在那之前，每天回來做 5 分鐘的「今日複習」，把今天學的記牢。`;
     this.stage.innerHTML = `
-      <div class="stage-kicker">第 ${this.lesson.num} 課完成</div>
-      <h2>${this.lesson.title}</h2>
-      <div class="result-grid">
-        <div><div class="result-stars">${starsHtml(stars)}</div><small>總結評分（決定是否解鎖）</small></div>
-        <div><div class="result-big">${Math.round((summary?.acc ?? 0) * 100)}%</div><small>總結測驗正確率</small></div>
-      </div>
-      <p>${passed ? '已解鎖下一課。想拿到 3 顆星，可以隨時重玩總結測驗。' : '需要 <b>1 顆星</b>（正確率 70%）才能解鎖下一課。再試一次總結測驗吧。'}</p>
-      ${rows ? `<h3>各段表現</h3><ul>${rows}</ul>` : ''}
-      ${weakHtml(allMisses)}
-      ${due.length ? `<p class="callout">下次暖身會複習：<b>${due.map(conceptName).join('、')}</b></p>` : ''}
-      <div class="footer-actions">
-        <button class="btn ${passed ? '' : 'btn-primary'}" data-act="retry">重玩總結測驗</button>
-        <button class="btn ${passed ? 'btn-primary' : ''}" data-act="home">回首頁</button>
+      <div class="result result-final">
+        <div class="staff-rule" aria-hidden="true"></div>
+        <h2 id="stage-title">第 ${this.lesson.num} 課完成</h2>
+        <div class="result-score">
+          ${starsHtml(stars, 3, 'stars-xl pop')}
+          <p class="result-pct">總結測驗 <b>${Math.round((summary?.acc ?? 0) * 100)}%</b></p>
+        </div>
+        <p>${nextLine}</p>
+        <details class="details">
+          <summary>各段表現與需要加強的地方</summary>
+          ${rows ? `<table class="seg-table"><tbody>${rows}</tbody></table>` : ''}
+          ${weakHtml(allMisses)}
+        </details>
+        ${due.length ? `<p class="callout">${icon.replay()}<span>下次複習會出現：<b>${due.map(conceptName).join('、')}</b></span></p>` : ''}
+        <div class="footer-actions">
+          <button class="btn ${passed ? '' : 'btn-primary'}" data-act="retry">${passed ? '重做總結測驗，拿更多星' : '再挑戰總結測驗'}</button>
+          <span class="spacer"></span>
+          <button class="btn ${passed ? 'btn-primary' : ''}" data-act="home">回首頁</button>
+        </div>
       </div>`;
     const btn = await Promise.race([
-      this.#click(this.stage.querySelector('[data-act="retry"]')).then(() => 'retry'),
-      this.#click(this.stage.querySelector('[data-act="home"]')).then(() => 'home'),
+      this.#click(this.stage.querySelector('[data-act="retry"]'), !passed).then(() => 'retry'),
+      this.#click(this.stage.querySelector('[data-act="home"]'), passed).then(() => 'home'),
     ]);
     if (btn === 'retry') {
-      const last = this.lesson.segments.length - 1;
       this.segResults = [];
-      return this.run(last);
+      return this.run(this.lesson.segments.length - 1);
     }
+    this.onExit();
+  }
+
+  async #finishReview(r) {
+    this.#setSegment(0, true);
+    const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]);
+    this.stage.innerHTML = `
+      <div class="result">
+        <h2 id="stage-title">今日複習完成</h2>
+        <div class="result-score">
+          ${starsHtml(r.stars, 3, 'stars-xl pop')}
+          <p class="result-pct">一次就彈對 <b>${Math.round(r.acc * 100)}%</b></p>
+        </div>
+        ${weakHtml(r.misses)}
+        <p class="muted">${due.length ? `還有 ${due.length} 個概念排在之後複習。` : '目前沒有待複習的概念，明天再來看看。'}</p>
+        <div class="footer-actions"><span class="spacer"></span><button class="btn btn-primary" data-act="home">回首頁</button></div>
+      </div>`;
+    await this.#click(this.stage.querySelector('[data-act="home"]'));
     this.onExit();
   }
 
@@ -195,7 +251,7 @@ export class LessonRunner {
     });
   }
 
-  #click(el) {
+  #click(el, focus = true) {
     return new Promise((resolve, reject) => {
       if (this.signal.aborted) return reject(new Aborted());
       const onAbort = () => reject(new Aborted());
@@ -204,7 +260,10 @@ export class LessonRunner {
         this.signal.removeEventListener('abort', onAbort);
         resolve();
       }, { once: true });
-      el.focus({ preventScroll: true });
+      if (focus) {
+        el.focus({ preventScroll: true });
+        el.scrollIntoView({ block: 'nearest' });
+      }
     });
   }
 
@@ -217,24 +276,40 @@ export class LessonRunner {
     const el = this.stage.querySelector('.feedback');
     if (!el) return;
     el.className = `feedback ${kind}`;
-    el.textContent = text;
+    const ic = kind === 'ok' ? icon.check() : kind === 'bad' ? icon.cross() : '';
+    el.innerHTML = text ? `${ic}<span>${text}</span>` : '';
   }
 
   #demo(notes, opts) {
     return this.piano.playSequence(notes, { ...opts, signal: this.signal });
   }
 
+  // Heading for a step: the step's own title, with its kind (e.g. "練習 1：有提示") as a line below.
+  #head(step, fallback = '') {
+    const title = step.title || step.kicker || fallback;
+    const sub = step.title && step.kicker ? step.kicker : '';
+    return `<h2 id="stage-title">${title}</h2>${sub ? `<p class="sub">${sub}</p>` : ''}`;
+  }
+
+  #dots(results, i, count) {
+    return `<ol class="progress-dots" aria-label="第 ${i + 1} 題，共 ${count} 題">${Array.from({ length: count }, (_, j) => {
+      const r = results[j];
+      const cls = r === undefined ? (j === i ? 'cur' : '') : r ? 'ok' : 'bad';
+      const ic = r === undefined ? '' : r ? icon.check() : icon.cross();
+      return `<li class="${cls}">${ic}</li>`;
+    }).join('')}</ol>`;
+  }
+
   // ---------- step types ----------
 
   async step_explain(step) {
     this.stage.innerHTML = `
-      ${step.kicker ? `<div class="stage-kicker">${step.kicker}</div>` : ''}
-      <h2>${step.title}</h2>
+      ${this.#head(step)}
       <div class="explain-body">${step.body}</div>
       <div class="footer-actions">
-        ${step.demo ? '<button class="btn" data-act="demo">▶ 聽示範</button>' : ''}
+        ${step.demo ? `<button class="btn" data-act="demo">${icon.play()}聽示範</button>` : ''}
         <span class="spacer"></span>
-        <button class="btn btn-primary" data-act="next">繼續 →</button>
+        <button class="btn btn-primary" data-act="next">繼續${icon.next()}</button>
       </div>`;
     for (const [n, kind, text] of step.keys || []) this.kb.mark(n, kind, text);
     const demoBtn = this.stage.querySelector('[data-act="demo"]');
@@ -244,16 +319,16 @@ export class LessonRunner {
 
   async step_free(step) {
     this.stage.innerHTML = `
-      <h2>${step.title}</h2>
+      ${this.#head(step)}
       <p>${step.body}</p>
-      <p class="prompt">剛剛彈的是：<span class="big" data-el="last">—</span></p>
+      <p class="prompt" aria-live="polite">剛剛彈的是 <span class="big" data-el="last">—</span></p>
       <div class="footer-actions">
         <span class="timer" data-el="timer"></span><span class="spacer"></span>
-        <button class="btn btn-primary" data-act="next">繼續 →</button>
+        <button class="btn btn-primary" data-act="next">繼續${icon.next()}</button>
       </div>`;
     const last = this.stage.querySelector('[data-el="last"]');
     const timer = this.stage.querySelector('[data-el="timer"]');
-    const onNote = (e) => { last.textContent = `${noteName(e.detail.note)}（${sci(e.detail.note)}）`; };
+    const onNote = (e) => { last.textContent = fullName(e.detail.note); };
     this.hub.addEventListener('noteon', onNote, { signal: this.signal });
     let left = step.seconds;
     timer.textContent = `建議至少彈 ${left} 秒`;
@@ -263,7 +338,7 @@ export class LessonRunner {
       if (left <= 0) clearInterval(tick);
     }, 1000);
     try {
-      await this.#click(this.stage.querySelector('[data-act="next"]'));
+      await this.#click(this.stage.querySelector('[data-act="next"]'), false);
     } finally {
       clearInterval(tick);
       this.hub.removeEventListener('noteon', onNote);
@@ -274,19 +349,21 @@ export class LessonRunner {
   async step_find(step) {
     if (step.mode === 'all') return this.#findAll(step);
     const targets = step.targets;
+    const exact = step.match === 'exact';
     const results = [];
     const misses = [];
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
       const promptText = step.promptFor ? step.promptFor(t) : `彈 <span class="big">${noteName(t)}</span>`;
       this.stage.innerHTML = `
-        <div class="stage-kicker">${step.kicker || ''}</div>
-        <p class="muted">${step.instruction || ''}</p>
-        <div class="progress-dots">${targets.map((_, j) => `<i class="${results[j] === undefined ? (j === i ? 'cur' : '') : results[j] ? 'ok' : 'bad'}"></i>`).join('')}</div>
+        ${this.#head(step, '找音')}
+        ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+        ${this.#dots(results, i, targets.length)}
         <p class="prompt">${promptText}</p>
-        <p class="feedback"></p>`;
-      const matches = (n) => (step.match === 'exact' ? n === t : pc(n) === pc(t));
-      const showHint = () => this.kb.mark(t, 'hint', step.finger?.(t) || '');
+        <p class="feedback" role="status"></p>`;
+      const matches = (n) => (exact ? n === t : pc(n) === pc(t));
+      // The lit key carries its letter so the learner reads the name, not just the light.
+      const showHint = () => this.kb.mark(t, 'hint', step.finger?.(t) || letter(t));
       if (step.hint === 'show') showHint();
       const hintTimer = step.hint === 'delay' ? setTimeout(showHint, 4000) : null;
       let firstTry = true;
@@ -295,13 +372,18 @@ export class LessonRunner {
           const n = await this.#note();
           if (matches(n)) {
             this.kb.flash(n, true);
-            this.#feedback(`✓ 正確，這是 ${noteName(n)}`, 'ok');
+            this.#feedback(`正確，這是 ${exact ? fullName(n) : noteName(n)}`, 'ok');
             break;
           }
           firstTry = false;
           this.kb.flash(n, false);
           showHint();
-          this.#feedback(`✗ 這是 ${noteName(n)}，正確的鍵已標示出來`, 'bad');
+          if (exact && pc(n) === pc(t)) {
+            const dir = octave(n) < octave(t) ? '低' : '高';
+            this.#feedback(`這是 ${sci(n)}，${dir}了 ${Math.abs(octave(n) - octave(t))} 個八度。要找的是 ${sci(t)}，已標示出來`, 'bad');
+          } else {
+            this.#feedback(`這是 ${noteName(n)}，正確的鍵已標示出來`, 'bad');
+          }
         }
       } finally {
         clearTimeout(hintTimer);
@@ -320,36 +402,37 @@ export class LessonRunner {
     const targets = notesOfClass(step.pitchClass, this.kb.low, this.kb.high);
     const found = new Set();
     let wrong = 0;
-    const render = () => {
-      this.stage.querySelector('[data-el="count"]').textContent = `${found.size}/${targets.length}`;
-    };
     this.stage.innerHTML = `
-      <div class="stage-kicker">${step.kicker || ''}</div>
-      <p class="prompt">${step.prompt}（<span data-el="count"></span>）</p>
-      <p class="muted">${step.instruction || ''}</p>
-      <p class="feedback"></p>`;
+      ${this.#head(step, '動手找')}
+      <p class="prompt">${step.prompt}<span class="count" data-el="count"></span></p>
+      ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+      <p class="feedback" role="status"></p>`;
+    const render = () => {
+      this.stage.querySelector('[data-el="count"]').textContent = `${found.size} / ${targets.length}`;
+    };
     render();
     while (found.size < targets.length) {
       const n = await this.#note();
       if (pc(n) === step.pitchClass) {
         if (!found.has(n)) {
           found.add(n);
-          this.kb.mark(n, 'found', '✓');
-          this.#feedback(`✓ 找到一個 ${noteName(n)}（${sci(n)}）`, 'ok');
+          this.kb.mark(n, 'found');
+          this.#feedback(`找到一個 ${noteName(n)}（${sci(n)}）`, 'ok');
           render();
         }
       } else {
         wrong++;
         this.kb.flash(n, false);
-        this.#feedback(`✗ 這是 ${noteName(n)}。${step.tip || ''}`, 'bad');
+        this.#feedback(`這是 ${noteName(n)}。${step.tip || ''}`, 'bad');
         if (wrong >= 3) targets.filter((x) => !found.has(x)).forEach((x) => this.kb.mark(x, 'soft'));
       }
     }
-    this.#feedback(`✓ 全部找到了！`, 'ok');
+    this.#feedback('全部找到了', 'ok');
     const concept = step.concept;
     if (concept) this.store.recordConcept(concept, wrong === 0);
     await this.#pause(900);
-    return { total: targets.length, right: Math.max(0, targets.length - wrong), misses: wrong ? [{ concept, note: targets[0] }] : [] };
+    // Accuracy = correct presses / all presses.
+    return { total: targets.length + wrong, right: targets.length, misses: wrong ? [{ concept, note: targets[0] }] : [] };
   }
 
   // Ear training: hear a note, find it on the keyboard.
@@ -360,12 +443,12 @@ export class LessonRunner {
     for (let i = 0; i < items.length; i++) {
       const t = items[i];
       this.stage.innerHTML = `
-        <div class="stage-kicker">${step.kicker || '聽→彈'}</div>
-        <div class="progress-dots">${items.map((_, j) => `<i class="${results[j] === undefined ? (j === i ? 'cur' : '') : results[j] ? 'ok' : 'bad'}"></i>`).join('')}</div>
-        <p class="prompt">聽，然後彈出這個音</p>
-        <p class="muted">${step.instruction || ''}</p>
-        <div class="row"><button class="btn" data-act="replay">▶ 再聽一次</button></div>
-        <p class="feedback"></p>`;
+        ${this.#head(step, '聽→彈')}
+        ${this.#dots(results, i, items.length)}
+        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>聽，然後彈出這個音</p>
+        ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+        <div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>
+        <p class="feedback" role="status"></p>`;
       for (const c of step.candidates || []) this.kb.mark(c, 'soft');
       const play = () => this.#demo([t], { bpm: 70 });
       this.stage.querySelector('[data-act="replay"]').onclick = play;
@@ -376,16 +459,16 @@ export class LessonRunner {
         const n = await this.#note();
         if (n === t) {
           this.kb.flash(n, true);
-          this.#feedback(`✓ 答對了，是 ${noteName(n)}`, 'ok');
+          this.#feedback(`答對了，是 ${fullName(n)}`, 'ok');
           break;
         }
         tries++;
         this.kb.flash(n, false);
         if (tries >= 2) {
-          this.kb.mark(t, 'hint');
-          this.#feedback(`✗ 你彈的是 ${noteName(n)}。答案是 ${noteName(t)}，已標示出來`, 'bad');
+          this.kb.mark(t, 'hint', letter(t));
+          this.#feedback(`你彈的是 ${fullName(n)}。答案是 ${fullName(t)}，已標示出來`, 'bad');
         } else {
-          this.#feedback(`✗ 不是 ${noteName(n)}。比較一下兩個音，再聽一次`, 'bad');
+          this.#feedback(`不是 ${fullName(n)}。比較一下兩個音的高低，再聽一次`, 'bad');
           await this.#pause(500);
           play();
         }
@@ -402,15 +485,28 @@ export class LessonRunner {
   // Play a melody in wait mode: the music waits until the right key is pressed.
   async step_melody(step) {
     const notes = step.notes;
+    // Group notes into 4-beat bars so rhythm is visible; short notes get narrower chips.
+    let beat = 0;
+    let bars = [[]];
+    notes.forEach((x, idx) => {
+      if (beat >= 4) { bars.push([]); beat = 0; }
+      bars[bars.length - 1].push(idx);
+      beat += x.d || 1;
+    });
+    if (!notes.some((x) => x.d)) bars = [notes.map((_, idx) => idx)];
+    const chipHtml = (idx) => {
+      const x = notes[idx];
+      const d = x.d || 1;
+      return `<li class="note-chip" style="--d:${d}"><b>${noteName(x.n)}</b><span>${x.f ? `${x.f} 指` : ''}</span><i class="chip-mark"></i></li>`;
+    };
     this.stage.innerHTML = `
-      <div class="stage-kicker">${step.kicker || ''}</div>
-      <h2>${step.title}</h2>
-      <p class="muted">${step.instruction || ''}</p>
-      <div class="notes-strip">${notes.map((x) => `<div class="note-chip"><b>${noteName(x.n)}</b><span>${x.f ? `${x.f} 指` : ''}</span></div>`).join('')}</div>
-      <p class="feedback"></p>
+      ${this.#head(step)}
+      ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+      <div class="score" aria-label="樂句">${bars.map((b) => `<ol class="bar">${b.map(chipHtml).join('')}</ol>`).join('')}</div>
+      <p class="feedback" role="status"></p>
       <div class="footer-actions">
-        <button class="btn" data-act="demo">▶ 先聽一次</button>
-        <span class="muted">等待模式：彈對了才會往下走，不必趕。</span>
+        <button class="btn" data-act="demo">${icon.play()}先聽一次</button>
+        <span class="muted small">等待模式：彈對了才會往下走，不必趕。</span>
       </div>`;
     const chips = [...this.stage.querySelectorAll('.note-chip')];
     this.stage.querySelector('[data-act="demo"]').onclick = () =>
@@ -420,37 +516,42 @@ export class LessonRunner {
     for (let i = 0; i < notes.length; i++) {
       const { n: t, f } = notes[i];
       chips.forEach((c, j) => c.classList.toggle('cur', j === i));
-      if (step.hint === 'show') this.kb.mark(t, 'hint', f ? String(f) : '');
+      if (step.hint === 'show') this.kb.mark(t, 'hint', f ? String(f) : letter(t));
       let firstTry = true;
       for (;;) {
         const n = await this.#note();
         if (n === t) { this.kb.flash(n, true); break; }
         firstTry = false;
         this.kb.flash(n, false);
-        this.kb.mark(t, 'hint', f ? String(f) : '');
-        this.#feedback(`✗ 這是 ${noteName(n)}（${sci(n)}），應該彈 ${noteName(t)}${f ? `，用 ${f} 指` : ''}`, 'bad');
+        this.kb.mark(t, 'hint', f ? String(f) : letter(t));
+        this.#feedback(`這是 ${fullName(n)}，應該彈 ${fullName(t)}${f ? `，用 ${f} 指` : ''}`, 'bad');
       }
-      if (firstTry) { right++; this.#feedback('', ''); } else misses.push({ concept: step.concept, note: t });
+      this.#feedback('');
       chips[i].classList.add('done');
-      if (!firstTry) chips[i].classList.add('miss');
+      if (firstTry) right++;
+      else {
+        misses.push({ concept: step.concept, note: t });
+        chips[i].classList.add('miss');
+        chips[i].querySelector('.chip-mark').innerHTML = icon.cross();
+      }
       this.kb.unmark(t);
     }
     chips.forEach((c) => c.classList.remove('cur'));
     if (step.concept) this.store.recordConcept(step.concept, misses.length === 0);
-    this.#feedback(misses.length ? `完成！有 ${misses.length} 個音需要再練習（紅框）` : '✓ 完美，一次都沒彈錯！', misses.length ? '' : 'ok');
+    this.#feedback(misses.length ? `完成！有 ${misses.length} 個音需要再練習（已用紅框標示）` : '完美，一個音都沒彈錯', misses.length ? '' : 'ok');
     await this.#pause(1200);
     return { total: notes.length, right, misses };
   }
 }
 
 function weakHtml(misses) {
-  if (!misses.length) return '<p class="feedback ok">✓ 這段沒有任何錯誤。</p>';
+  if (!misses.length) return `<p class="feedback ok">${icon.check()}<span>這段沒有任何錯誤</span></p>`;
   const byConcept = new Map();
   for (const m of misses) {
     const key = m.concept ? conceptName(m.concept) : '其他';
     if (!byConcept.has(key)) byConcept.set(key, new Set());
     if (m.note !== undefined) byConcept.get(key).add(noteName(m.note));
   }
-  const items = [...byConcept].map(([k, set]) => `<li><b>${k}</b>${set.size ? `：${[...set].join('、')}` : ''}</li>`).join('');
-  return `<h3>需要加強</h3><ul class="weak-list">${items}</ul>`;
+  const items = [...byConcept].slice(0, 3).map(([k, set]) => `<li><b>${k}</b>${set.size ? `：${[...set].join('、')}` : ''}</li>`).join('');
+  return `<div class="weak"><h3>需要加強</h3><ul>${items}</ul></div>`;
 }

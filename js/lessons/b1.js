@@ -10,21 +10,20 @@ const fingerOf = (n) => ({ 0: '1', 2: '2', 4: '3' })[n % 12];
 const blackKeys = [];
 for (let n = LESSON_LOW; n <= LESSON_HIGH; n++) if (isBlack(n)) blackKeys.push([n, 'soft']);
 
+// Right hand seen from above, fingertips resting on keys. Numbers sit on the fingertips.
 const HAND_SVG = `
-<svg viewBox="0 0 260 200" width="260" role="img" aria-label="右手手指編號：拇指 1、食指 2、中指 3、無名指 4、小指 5">
-  <g fill="var(--surface-2)" stroke="var(--muted)" stroke-width="2">
-    <rect x="70" y="110" width="140" height="80" rx="30"/>
-    <rect x="22" y="100" width="34" height="70" rx="17" transform="rotate(-35 39 135)"/>
-    <rect x="78" y="34" width="30" height="90" rx="15"/>
-    <rect x="114" y="20" width="30" height="100" rx="15"/>
-    <rect x="150" y="30" width="30" height="92" rx="15"/>
-    <rect x="186" y="52" width="26" height="76" rx="13"/>
+<svg viewBox="0 0 280 210" width="280" role="img" aria-label="右手手指編號：拇指 1、食指 2、中指 3、無名指 4、小指 5">
+  <g fill="var(--surface)" stroke="var(--ink-soft)" stroke-width="2" stroke-linejoin="round">
+    <path d="M92 196c-14-24-20-48-18-70l4-30c1-7 10-8 12-1l9 34 4-74c1-9 14-9 15 0l3 66 6-80c1-9 15-9 15 0l2 80 8-70c1-9 14-8 14 1l-2 76 10-48c2-8 13-6 13 2l-6 66c-2 22-8 38-18 48z"/>
+    <path d="M78 150c-12-6-26-18-36-34-5-8 3-16 11-11l30 20"/>
   </g>
-  <g font-weight="700" font-size="20" text-anchor="middle" fill="var(--accent)">
-    <text x="36" y="118">1</text><text x="93" y="62">2</text><text x="129" y="48">3</text>
-    <text x="165" y="58">4</text><text x="199" y="78">5</text>
+  <g class="hand-num" font-weight="700" font-size="17" text-anchor="middle">
+    <circle cx="52" cy="112" r="13"/><text x="52" y="118">1</text>
+    <circle cx="106" cy="58" r="13"/><text x="106" y="64">2</text>
+    <circle cx="137" cy="44" r="13"/><text x="137" y="50">3</text>
+    <circle cx="170" cy="56" r="13"/><text x="170" y="62">4</text>
+    <circle cx="198" cy="86" r="13"/><text x="198" y="92">5</text>
   </g>
-  <text x="140" y="160" text-anchor="middle" font-size="14" fill="var(--muted)">右手（手背朝上）</text>
 </svg>`;
 
 const HOT_CROSS_BUNS = [
@@ -62,7 +61,7 @@ export default {
         {
           type: 'explain', kicker: '新概念 1/5', title: '黑鍵是鍵盤的地圖',
           body: `<p>白鍵長得都一樣，要靠<b>黑鍵</b>認路。看看你的鍵盤：黑鍵是<b>兩個一組</b>、<b>三個一組</b>輪流出現。</p>
-            <p class="callout">先在鍵盤上找出所有「兩個一組」的黑鍵，再找所有「三個一組」的黑鍵。</p>`,
+            <p class="callout">看看你的鍵盤（和下方畫面上淡藍框的黑鍵）：先數出「兩個一組」，再數出「三個一組」。下一步就要用它們來找 C。</p>`,
           keys: blackKeys,
         },
         {
@@ -138,6 +137,12 @@ export default {
     },
     {
       kind: 'piece', minutes: 15, graded: true,
+      celebrate: {
+        title: '你彈完了第一首曲子',
+        body: '〈Hot Cross Buns〉從頭到尾，而且第二遍沒有任何提示。這就是用讀音名、照指法彈奏的第一步。',
+        song: HOT_CROSS_BUNS.map(({ n, d }) => ({ n, d })),
+        bpm: 100,
+      },
       steps: [
         {
           type: 'explain', kicker: '實際曲目', title: '〈Hot Cross Buns〉英國傳統童謠',

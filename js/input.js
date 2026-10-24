@@ -3,7 +3,7 @@
 import { LESSON_LOW, LESSON_HIGH } from './notes.js';
 
 // Two rows: Z-row = C3..B3, Q-row = C4..C5.
-const QWERTY = {
+export const QWERTY = {
   z: 48, s: 49, x: 50, d: 51, c: 52, v: 53, g: 54, b: 55, h: 56, n: 57, j: 58, m: 59,
   q: 60, 2: 61, w: 62, 3: 63, e: 64, r: 65, 5: 66, t: 67, 6: 68, y: 69, 7: 70, u: 71, i: 72,
 };
@@ -95,7 +95,9 @@ export class InputHub extends EventTarget {
       const n = QWERTY[e.key.toLowerCase()];
       if (n === undefined) return;
       e.preventDefault();
-      if (down.has(n)) return;
+      if (e.repeat) return;
+      // A fresh keydown for a key we think is held means its keyup was lost.
+      if (down.has(n)) this.release(n, 'qwerty');
       down.add(n);
       this.press(n, 0.75, 'qwerty');
     });

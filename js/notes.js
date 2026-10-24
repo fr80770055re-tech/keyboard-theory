@@ -24,6 +24,11 @@ export function noteName(n) {
   return showSolfege ? `${letter(n)}（${solfege(n)}）` : letter(n);
 }
 
+// Name with octave: "E4" or "E4（Mi）".
+export function fullName(n) {
+  return showSolfege ? `${sci(n)}（${solfege(n)}）` : sci(n);
+}
+
 export function notesOfClass(pitchClass, low, high) {
   const out = [];
   for (let n = low; n <= high; n++) if (pc(n) === pitchClass) out.push(n);

@@ -63,10 +63,10 @@ export class Piano {
       gain.gain.setValueAtTime(0, t);
       gain.gain.linearRampToValueAtTime(level * 0.35, t + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
-      src.stop(t + 1.7);
     }
     src.connect(gain);
     src.start(t);
+    if (nearest === null) src.stop(t + 1.7);
     this.voices.set(note, { src, gain });
     src.onended = () => {
       if (this.voices.get(note)?.src === src) this.voices.delete(note);

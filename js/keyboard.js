@@ -1,10 +1,11 @@
 // On-screen piano keyboard. Renders a logical note range and shows lesson marks.
 import { isBlack, letter, MIDDLE_C, pc } from './notes.js';
+import { icon } from './icons.js';
 
 // Black key center shift from the boundary between its two white keys,
 // in white-key widths (real pianos nudge the 2- and 3-groups apart).
 const BLACK_OFFSET = { 1: -0.08, 3: 0.08, 6: -0.1, 8: 0, 10: 0.1 };
-const MARK_CLASSES = ['hint', 'soft', 'found', 'ok', 'bad'];
+const MARK_CLASSES = ['hint', 'soft', 'found'];
 
 export class Keyboard {
   constructor(el, hub) {
@@ -12,7 +13,8 @@ export class Keyboard {
     this.hub = hub;
     this.keys = new Map();
     this.flashTimers = new Map();
-    this.labelMode = 'c'; // 'c' = label every C, 'all' = every white key, 'none'
+    this.labelMode = 'c'; // 'c' = label every C, 'all' = every white key
+    this.keyHints = null; // note -> computer-keyboard letter
     hub.addEventListener('noteon', (e) => this.#setDown(e.detail.note, true));
     hub.addEventListener('noteoff', (e) => this.#setDown(e.detail.note, false));
     this.#bindPointer();
@@ -32,10 +34,16 @@ export class Keyboard {
     for (const [n, k] of this.keys) k.querySelector('.klabel').textContent = this.#baseLabel(n);
   }
 
+  // Show which computer key plays each note (shown when no MIDI keyboard is connected).
+  setKeyHints(map) {
+    this.keyHints = map;
+    for (const [n, k] of this.keys) k.querySelector('.kkey').textContent = map?.[n] ?? '';
+  }
+
   #baseLabel(n) {
     if (isBlack(n)) return '';
     if (this.labelMode === 'all') return letter(n);
-    if (this.labelMode === 'c' && pc(n) === 0) return n === MIDDLE_C ? 'C4' : letter(n);
+    if (pc(n) === 0) return n === MIDDLE_C ? 'C4' : letter(n);
     return '';
   }
 
@@ -44,13 +52,14 @@ export class Keyboard {
     this.keys.clear();
     const whites = [];
     for (let n = this.low; n <= this.high; n++) if (!isBlack(n)) whites.push(n);
+    this.el.style.setProperty('--whites', whites.length);
     const w = 100 / whites.length;
     let whiteIndex = -1;
     for (let n = this.low; n <= this.high; n++) {
       const k = document.createElement('div');
       k.className = `key ${isBlack(n) ? 'black' : 'white'}`;
       k.dataset.note = n;
-      k.innerHTML = `<span class="kmark" hidden></span><span class="klabel">${this.#baseLabel(n)}</span>`;
+      k.innerHTML = `<span class="kkey">${this.keyHints?.[n] ?? ''}</span><span class="kmark" hidden></span><span class="kflash" hidden></span><span class="klabel">${this.#baseLabel(n)}</span>`;
       if (n === MIDDLE_C) k.insertAdjacentHTML('afterbegin', '<span class="mid-c" title="中央 C"></span>');
       if (isBlack(n)) {
         const center = (whiteIndex + 1 + BLACK_OFFSET[pc(n)]) * w;
@@ -100,53 +109,52 @@ export class Keyboard {
   // Visual press without input, used while the piano plays a demo.
   showDown(n, on) { this.#setDown(n, on); }
 
-  // Persistent mark: 'hint' | 'soft' | 'found'. text = small badge (finger number, ✓…).
+  // Persistent lesson mark: 'hint' | 'soft' | 'found'. text = small badge (finger number, letter).
   mark(n, kind, text = '') {
     const k = this.keys.get(n);
     if (!k) return;
     k.classList.remove(...MARK_CLASSES);
     k.classList.add(kind);
-    this.#badge(k, text);
+    const b = k.querySelector('.kmark');
+    b.innerHTML = kind === 'found' ? icon.check() : text;
+    b.hidden = kind !== 'found' && !text;
   }
 
   unmark(n) {
     const k = this.keys.get(n);
     if (!k) return;
     k.classList.remove(...MARK_CLASSES);
-    this.#badge(k, '');
+    const b = k.querySelector('.kmark');
+    b.textContent = '';
+    b.hidden = true;
   }
 
   clearMarks() {
-    for (const n of this.keys.keys()) this.unmark(n);
-    for (const t of this.flashTimers.values()) clearTimeout(t);
-    this.flashTimers.clear();
+    for (const n of this.keys.keys()) {
+      this.unmark(n);
+      this.#endFlash(n);
+    }
   }
 
-  // Short-lived right/wrong feedback. Icons accompany color for color-blind users.
+  // Short-lived right/wrong feedback, drawn as an overlay that never touches the
+  // persistent marks. Icons accompany colour for colour-blind users.
   flash(n, ok) {
     const k = this.keys.get(n);
     if (!k) return;
-    const prevClasses = MARK_CLASSES.filter((c) => k.classList.contains(c));
-    const prevBadge = k.querySelector('.kmark');
-    const prevText = prevBadge.hidden ? '' : prevBadge.textContent;
-    clearTimeout(this.flashTimers.get(n));
-    k.classList.remove(...MARK_CLASSES);
+    this.#endFlash(n);
     k.classList.add(ok ? 'ok' : 'bad');
-    this.#badge(k, ok ? '✓' : '✗');
-    this.flashTimers.set(n, setTimeout(() => {
-      k.classList.remove('ok', 'bad');
-      if (prevClasses.some((c) => c !== 'ok' && c !== 'bad')) {
-        k.classList.add(...prevClasses.filter((c) => c !== 'ok' && c !== 'bad'));
-        this.#badge(k, prevText);
-      } else {
-        this.#badge(k, '');
-      }
-    }, 550));
+    const f = k.querySelector('.kflash');
+    f.innerHTML = ok ? icon.check() : icon.cross();
+    f.hidden = false;
+    this.flashTimers.set(n, setTimeout(() => this.#endFlash(n), 550));
   }
 
-  #badge(k, text) {
-    const b = k.querySelector('.kmark');
-    b.textContent = text;
-    b.hidden = !text;
+  #endFlash(n) {
+    clearTimeout(this.flashTimers.get(n));
+    this.flashTimers.delete(n);
+    const k = this.keys.get(n);
+    if (!k) return;
+    k.classList.remove('ok', 'bad');
+    k.querySelector('.kflash').hidden = true;
   }
 }
