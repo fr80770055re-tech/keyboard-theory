@@ -320,6 +320,16 @@ kbd {
 .chip-mark { position: absolute; top: -7px; right: -7px; color: var(--bad); background: var(--surface); border-radius: 50%; line-height: 0; }
 .chip-mark .icon { width: 14px; height: 14px; stroke-width: 2.5; }
 
+/* Chord progressions: one chip per chord, symbol over Roman numeral. */
+.chord-bar { border-left: 0; padding: 0; flex-wrap: wrap; margin: 14px 0 6px; }
+.chord-bar:last-child { border-right: 0; }
+.chord-chip { width: auto; min-width: 64px; padding: 8px 12px; }
+.chord-chip b { font-size: 1.25rem; }
+.tones { margin-top: -4px; }
+.choices { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.choice-btn { min-height: 48px; padding: 10px 18px; text-align: left; }
+.choice-btn.is-right { border-color: var(--ok); background: var(--ok-soft); color: var(--text); opacity: 1; }
+.choice-btn.is-wrong { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; }
 .explain-body { max-width: 66ch; }
 .explain-body ul { padding-left: 1.2em; margin: 0 0 .8em; }
 .callout {
@@ -380,6 +390,8 @@ body.in-lesson .view { display: flex; flex-direction: column; padding-bottom: 12
 body.in-lesson .stage { margin-top: auto; background: transparent; border: 0; border-radius: 0; padding: 12px 0 0; min-height: 0; }
 body.in-lesson .kb-wrap { padding-top: 4px; }
 body.in-lesson.result-mode .kb-wrap { display: none; }
+body.in-lesson.step-read .kb-keys { height: clamp(96px, 16vh, 150px); }
+body.in-lesson.step-read .kb-lane { height: 0; }
 /* On short screens the step's buttons stay reachable at the bottom of the stage. */
 body.in-lesson .stage .footer-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 6px; margin-top: 16px; }
 /* Keys take what the lesson content leaves, so the score never hides behind them. */

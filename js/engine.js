@@ -164,6 +164,8 @@ export class LessonRunner {
     for (const raw of steps) {
       document.body.classList.remove('result-mode');
       const step = typeof raw === 'function' ? raw() : raw;
+      // Reading steps get a smaller keyboard so the text has room on laptops.
+      document.body.classList.toggle('step-read', step.type === 'explain');
       this.kb.clearMarks();
       this.kb.setLabelMode(step.labels || 'c');
       const r = await this[`step_${step.type}`](step, seg);
@@ -569,6 +571,159 @@ export class LessonRunner {
     return { total: items.length, right: results.filter(Boolean).length, misses };
   }
 
+  // Play chords, one at a time or as a progression. Any voicing counts: what
+  // matters is which notes sound together (pressed within ~1.5 s, or held), so
+  // mouse users can roll a chord too. Some chords only need root, 3rd and 7th
+  // (shell voicings); `bass: true` also requires the root to be the lowest note.
+  async step_chords(step) {
+    const chords = step.chords;
+    const prog = Boolean(step.progression);
+    const results = [];
+    const misses = [];
+    const chipHtml = (c) => `<li class="note-chip chord-chip"><b>${c.sym}</b><span>${c.roman || ''}</span><i class="chip-mark"></i></li>`;
+    this.stage.innerHTML = `
+      ${this.#head(step, '彈和弦')}
+      ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+      ${prog
+        ? `<ol class="bar chord-bar">${chords.map(chipHtml).join('')}</ol>`
+        : '<div data-el="dots"></div><p class="prompt" data-el="prompt"></p><p class="tones muted" data-el="tones"></p>'}
+      <p class="feedback"></p>
+      <div class="footer-actions">
+        <button class="btn" data-act="demo">${icon.play()}${prog ? '聽整段' : '聽這個和弦'}</button>
+        <span class="muted small">${step.bass ? '最低音要彈根音。' : '任何轉位、任何八度都可以。'}</span>
+      </div>`;
+    const chips = [...this.stage.querySelectorAll('.chord-chip')];
+    let cur = 0;
+    this.stage.querySelector('[data-act="demo"]').onclick = () =>
+      this.#demo((prog ? chords : [chords[cur]]).map((c) => ({ n: c.voicing, d: 2 })), { bpm: step.bpm || 80 });
+    const label = (c) => `${c.sym}${c.roman ? `（${c.roman}）` : ''}`;
+    if (prog) this.#announce(`${step.title || step.kicker || ''}。${step.instruction || ''}和弦進行：${chords.map((c) => c.sym).join('、')}。`);
+
+    for (let i = 0; i < chords.length; i++) {
+      const c = chords[i];
+      cur = i;
+      const allowed = new Set(c.pcs);
+      const need = c.need || c.pcs;
+      const toneOf = (p) => c.tones[c.pcs.indexOf(p)];
+      if (prog) {
+        chips.forEach((el, j) => el.classList.toggle('cur', j === i));
+        chips[i].scrollIntoView({ block: 'nearest' });
+        if (i > 0) this.#announce(`第 ${i + 1} 個：${label(c)}，${c.tones.join('、')}`);
+      } else {
+        this.stage.querySelector('[data-el="dots"]').innerHTML = this.#dots(results, i, chords.length);
+        this.stage.querySelector('[data-el="prompt"]').innerHTML = `彈 <span class="big">${c.sym}</span>${c.roman ? `<span class="count">${c.roman}</span>` : ''}`;
+        this.stage.querySelector('[data-el="tones"]').textContent = step.hint === 'none'
+          ? '' : `組成音：${c.tones.join('、')}${c.need ? `（至少彈 ${need.map(toneOf).join('、')}）` : ''}`;
+        this.#announce(`第 ${i + 1} 題，共 ${chords.length} 題。彈 ${label(c)}。${step.hint === 'none' ? '' : `組成音 ${c.tones.join('、')}。`}`);
+      }
+      const showHint = () => {
+        c.voicing.forEach((n, k) => this.kb.mark(n, 'hint', c.fingers?.[k] || toneOf(pc(n)) || ''));
+        this.kb.cue([{ n: c.voicing[0], label: c.sym, sub: c.roman || '' }]);
+      };
+      if (step.hint === 'show') showHint();
+      const hintTimer = step.hint === 'delay' ? setTimeout(showHint, 5000) : null;
+      const recent = new Map(); // note -> time pressed
+      let firstTry = true;
+      try {
+        for (;;) {
+          const n = await this.#note();
+          const now = Date.now();
+          recent.set(n, now);
+          for (const [k, t] of recent) if (now - t > 1500 && !this.hub.held.has(k)) recent.delete(k);
+          if (!allowed.has(pc(n))) {
+            firstTry = false;
+            recent.delete(n);
+            this.kb.flash(n, false);
+            showHint();
+            this.#feedback(`${letter(n)} 不在 ${c.sym} 裡。${c.sym} 由 ${c.tones.join('、')} 組成，建議按法已標示`, 'bad');
+            continue;
+          }
+          this.kb.mark(n, 'found');
+          const played = new Set([...recent.keys()].map(pc));
+          if (!need.every((p) => played.has(p))) continue;
+          const lowest = Math.min(...recent.keys());
+          if (step.bass && pc(lowest) !== c.pcs[0]) {
+            firstTry = false;
+            this.#feedback(`音都對了，但最低音要是根音 ${c.tones[0]}`, 'bad');
+            continue;
+          }
+          [...recent.keys()].forEach((k) => this.kb.flash(k, true));
+          this.#feedback(`正確：${label(c)}`, 'ok');
+          break;
+        }
+      } finally {
+        clearTimeout(hintTimer);
+      }
+      results.push(firstTry);
+      const concept = typeof step.concept === 'function' ? step.concept(c) : step.concept;
+      if (concept) this.store.recordConcept(concept, firstTry);
+      if (!firstTry) {
+        misses.push({ concept, label: c.sym });
+        if (prog) { chips[i].classList.add('miss'); chips[i].querySelector('.chip-mark').innerHTML = icon.cross(); }
+      }
+      if (prog) chips[i].classList.add('done');
+      await this.#pause(prog ? 350 : 650);
+      this.kb.clearMarks();
+    }
+    if (prog) chips.forEach((el) => el.classList.remove('cur'));
+    return { total: chords.length, right: results.filter(Boolean).length, misses };
+  }
+
+  // Listening questions with multiple-choice answers (e.g. "which chord was borrowed?").
+  async step_choice(step) {
+    const items = step.items;
+    const results = [];
+    const misses = [];
+    for (let i = 0; i < items.length; i++) {
+      const q = items[i];
+      this.stage.innerHTML = `
+        ${this.#head(step, '聽與辨')}
+        ${this.#dots(results, i, items.length)}
+        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>${q.prompt}</p>
+        ${q.play ? `<div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>` : ''}
+        <div class="choices" role="group" aria-label="選項">${q.options.map((o, k) => `<button class="btn choice-btn" data-opt="${k}">${o}</button>`).join('')}</div>
+        <p class="feedback"></p>
+        <div class="footer-actions" data-el="after" hidden><span class="spacer"></span><button class="btn btn-primary" data-act="next">下一題${icon.next()}</button></div>`;
+      const play = () => q.play && this.#demo(q.play, { bpm: q.bpm || 76 });
+      const replay = this.stage.querySelector('[data-act="replay"]');
+      if (replay) replay.onclick = play;
+      this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。${q.prompt}選項：${q.options.map((o, k) => `${k + 1}，${o}`).join('；')}。${q.play ? '按 L 可以再聽一次。' : ''}`);
+      await this.#pause(300);
+      play();
+      let firstTry = true;
+      await new Promise((resolve, reject) => {
+        const onAbort = () => reject(new Aborted());
+        this.signal.addEventListener('abort', onAbort, { once: true });
+        this.stage.querySelectorAll('[data-opt]').forEach((b) => {
+          b.onclick = () => {
+            this.dirty = true;
+            const k = Number(b.dataset.opt);
+            if (k === q.answer) {
+              b.classList.add('is-right');
+              this.stage.querySelectorAll('[data-opt]').forEach((x) => { x.disabled = true; });
+              this.#feedback(`答對了。${q.explain || ''}`, 'ok');
+              this.signal.removeEventListener('abort', onAbort);
+              resolve();
+            } else {
+              firstTry = false;
+              b.classList.add('is-wrong');
+              b.disabled = true;
+              this.#feedback(`不是「${q.options[k]}」。${q.hint || '再聽一次，注意和弦的色彩。'}`, 'bad');
+            }
+          };
+        });
+      });
+      results.push(firstTry);
+      const concept = step.concept;
+      if (concept) this.store.recordConcept(concept, firstTry);
+      if (!firstTry) misses.push({ concept, label: q.options[q.answer] });
+      const after = this.stage.querySelector('[data-el="after"]');
+      after.hidden = false;
+      await this.#click(after.querySelector('[data-act="next"]'));
+    }
+    return { total: items.length, right: results.filter(Boolean).length, misses };
+  }
+
   // Play a melody in wait mode: the music waits until the right key is pressed.
   async step_melody(step) {
     const notes = step.notes;
@@ -659,6 +814,7 @@ function weakHtml(misses) {
     const key = m.concept ? conceptName(m.concept) : '其他';
     if (!byConcept.has(key)) byConcept.set(key, new Set());
     if (m.note !== undefined) byConcept.get(key).add(noteName(m.note));
+    else if (m.label) byConcept.get(key).add(m.label);
   }
   const items = [...byConcept].slice(0, 3).map(([k, set]) => `<li><b>${k}</b>${set.size ? `：${[...set].join('、')}` : ''}</li>`).join('');
   return `<div class="weak"><h3>需要加強</h3><ul>${items}</ul></div>`;

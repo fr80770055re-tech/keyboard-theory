@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath></defs>
+  <g clip-path="url(#r)">
+  <!-- Rounded variant for browser tabs and platforms that show the icon as-is. -->
+  <rect width="512" height="512" fill="#233f7a"/>
+  <!-- A sheet of score paper: five-line staff with one note above a piano keyboard. -->
+  <rect x="96" y="96" width="320" height="320" rx="36" fill="#f5f0e6"/>
+  <g stroke="#9d907a" stroke-width="4" stroke-linecap="round">
+    <line x1="132" y1="136" x2="380" y2="136"/>
+    <line x1="132" y1="150" x2="380" y2="150"/>
+    <line x1="132" y1="164" x2="380" y2="164"/>
+    <line x1="132" y1="178" x2="380" y2="178"/>
+    <line x1="132" y1="192" x2="380" y2="192"/>
+  </g>
+  <line x1="316" y1="166" x2="316" y2="112" stroke="#233f7a" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="300" cy="171" rx="19" ry="13" transform="rotate(-20 300 171)" fill="#233f7a"/>
+  <rect x="132" y="228" width="248" height="152" rx="12" fill="#fffdf8" stroke="#1f1c17" stroke-width="6"/>
+  <g stroke="#1f1c17" stroke-width="5">
+    <line x1="194" y1="228" x2="194" y2="380"/>
+    <line x1="256" y1="228" x2="256" y2="380"/>
+    <line x1="318" y1="228" x2="318" y2="380"/>
+  </g>
+  <rect x="176" y="228" width="36" height="92" rx="5" fill="#1f1c17"/>
+  <rect x="238" y="228" width="36" height="92" rx="5" fill="#1f1c17"/>
+  </g>
+</svg>

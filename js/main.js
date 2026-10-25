@@ -58,7 +58,7 @@ function setKeyboardVisible(on) {
 // In a lesson the keyboard is the stage: taller keys, a cue lane above them.
 function setLessonMode(on) {
   document.body.classList.toggle('in-lesson', on);
-  document.body.classList.remove('result-mode');
+  document.body.classList.remove('result-mode', 'step-read');
 }
 
 // ---------- MIDI status & calibration prompts ----------
@@ -184,7 +184,9 @@ function lessonState(track, i) {
   const lessons = TRACKS[track].lessons;
   const l = lessons[i];
   const playable = Boolean(l.segments);
-  const unlocked = i === 0 || store.lesson(lessons[i - 1].id).completed;
+  // Unlocked once every earlier lesson that exists is finished (lessons still in
+  // production don't block the ones after them).
+  const unlocked = lessons.slice(0, i).every((p) => !p.segments || store.lesson(p.id).completed);
   return { l, playable, unlocked, p: store.lesson(l.id), next: lessons[i + 1] || null };
 }
 
@@ -493,9 +495,18 @@ window.addEventListener('beforeunload', (e) => {
   if (runner?.dirty && !runner.atResult) e.preventDefault();
 });
 
+// Another tab saved progress: refresh the home page so it never shows stale state.
+store.addEventListener('change', () => {
+  setSolfege(store.settings.solfege);
+  if (!runner && !hub.capture && !dlg.open && store.level) showHome();
+});
+
 // ---------- boot ----------
 
 applyRange();
 updateMidiStatus();
 showHome();
 hub.initMidi().then(updateMidiStatus);
+
+// Installable web app: cache the app shell so it opens offline.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

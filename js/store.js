@@ -26,13 +26,33 @@ const addDays = (iso, days) => {
   return today(d);
 };
 
-class Store {
+// Several tabs may be open at once. Every change re-reads storage first and then
+// writes, so one tab never saves its stale copy over another tab's progress; and
+// each tab picks up the others' saves through the 'storage' event.
+class Store extends EventTarget {
   constructor() {
+    super();
     this.data = fresh();
+    this.#pull();
+    window.addEventListener('storage', (e) => {
+      if (e.key !== KEY) return;
+      this.#pull();
+      this.dispatchEvent(new Event('change'));
+    });
+  }
+
+  #pull() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) this.data = { ...fresh(), ...JSON.parse(raw) };
-    } catch { /* storage unavailable: run in memory */ }
+      this.data = raw ? { ...fresh(), ...JSON.parse(raw) } : fresh();
+    } catch { /* storage unavailable: keep the in-memory copy */ }
+  }
+
+  // Read-modify-write against the latest stored state.
+  #write(change) {
+    this.#pull();
+    change(this.data);
+    this.save();
   }
 
   save() {
@@ -40,23 +60,23 @@ class Store {
   }
 
   get settings() { return this.data.settings; }
-  setSetting(k, v) { this.data.settings[k] = v; this.save(); }
+  setSetting(k, v) { this.#write((d) => { d.settings[k] = v; }); }
 
   get level() { return this.data.level; }
-  setLevel(l) { this.data.level = l; this.save(); }
+  setLevel(l) { this.#write((d) => { d.level = l; }); }
 
   calibrationFor(device) { return this.data.calibration[device] || null; }
-  setCalibration(device, cal) { this.data.calibration[device] = cal; this.save(); }
+  setCalibration(device, cal) { this.#write((d) => { d.calibration[device] = cal; }); }
 
   lesson(id) {
     return { segment: 0, bestStars: 0, completed: false, lastStars: null, segResults: [], ...this.data.lessons[id] };
   }
   updateLesson(id, patch) {
-    this.data.lessons[id] = { ...this.lesson(id), ...patch };
-    this.save();
+    this.#write((d) => { d.lessons[id] = { ...this.lesson(id), ...patch }; });
   }
 
   recordConcept(id, right) {
+    this.#pull();
     const c = this.data.concepts[id] || { box: 1, due: today(), seen: 0, right: 0 };
     c.seen++;
     // Promote at most one box per day: many right answers in one sitting are not
@@ -87,11 +107,12 @@ class Store {
 
   // Days that count toward the streak: a finished daily review or lesson segment.
   markDay(kind) {
-    const t = today();
-    const d = this.data.days[t] || { review: false, segments: 0 };
-    if (kind === 'review') d.review = true; else d.segments++;
-    this.data.days[t] = d;
-    this.save();
+    this.#write((data) => {
+      const t = today();
+      const d = data.days[t] || { review: false, segments: 0 };
+      if (kind === 'review') d.review = true; else d.segments++;
+      data.days[t] = d;
+    });
   }
 
   dayOf(iso) { return this.data.days[iso] || null; }
@@ -111,9 +132,10 @@ class Store {
   }
 
   logPractice(seconds) {
-    const t = today();
-    this.data.practice[t] = (this.data.practice[t] || 0) + seconds;
-    this.save();
+    this.#write((d) => {
+      const t = today();
+      d.practice[t] = (d.practice[t] || 0) + seconds;
+    });
   }
 
   practiceOn(iso) { return this.data.practice[iso] || 0; }
