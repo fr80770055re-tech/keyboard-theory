@@ -84,6 +84,30 @@ export const CONCEPTS = {
     name: '穿指（C 大調音階）',
     review: () => [melody('複習：穿指', 'C 大調音階（上行）', [[60, 1], [62, 2], [64, 3], [65, 1], [67, 2], [69, 3], [71, 4], [72, 5]], 'thumb-under', '彈完 E（3 指）後，拇指從下面穿過去彈 F。')],
   },
+  'rhythm-basic': {
+    name: '四分、二分與休止符',
+    review: () => [{ type: 'rhythm', kicker: '複習：節奏', title: '長短與休止', pattern: [{ d: 1 }, { d: 1 }, { d: 2 }, { d: 1, n: null }, { d: 1 }, { d: 2 }], bpm: 66, concept: 'rhythm-basic' }],
+  },
+  'rhythm-eighth': {
+    name: '八分音符與附點',
+    review: () => [{ type: 'rhythm', kicker: '複習：節奏', title: '八分與附點', pattern: [{ d: 0.5 }, { d: 0.5 }, { d: 1 }, { d: 1.5 }, { d: 0.5 }, { d: 4 }], bpm: 62, concept: 'rhythm-eighth' }],
+  },
+  'read-treble': {
+    name: '讀高音譜號',
+    review: () => [() => ({ type: 'find', staff: true, clef: 'treble', match: 'exact', kicker: '複習：讀譜', targets: shuffleDraw([60, 62, 64, 65, 67, 69, 71, 72], 4), hint: 'delay', concept: () => 'read-treble' })],
+  },
+  'read-bass': {
+    name: '讀低音譜號',
+    review: () => [() => ({ type: 'find', staff: true, clef: 'bass', match: 'exact', kicker: '複習：讀低音譜號', targets: shuffleDraw([48, 50, 52, 53, 55, 57, 59], 4), hint: 'delay', concept: () => 'read-bass' })],
+  },
+  'accomp-patterns': {
+    name: '伴奏型指法',
+    review: () => [melody('複習：伴奏型', '根音五度 → 分解和弦', [[48, 5], [55, 1], [48, 5], [55, 1], [48, 5], [52, 3], [55, 1], [52, 3]], 'accomp-patterns', '左手 5-1-5-1，再 5-3-1-3。')],
+  },
+  alberti: {
+    name: 'Alberti 低音',
+    review: () => [{ type: 'rhythm', kicker: '複習：Alberti', title: 'C–G–E–G', clef: 'bass', bpm: 66, concept: 'alberti', pattern: [48, 55, 52, 55, 48, 55, 52, 55].map((n) => ({ n, d: 0.5 })).concat([{ n: 48, d: 4 }]) }],
+  },
   'triad-CFG': {
     name: 'C、F、G 三和弦',
     review: () => [() => ({ type: 'chords', kicker: '複習：三和弦', hint: 'delay', concept: 'triad-CFG', chords: shuffleDraw([CH.C, CH.F, CH.G], 3) })],

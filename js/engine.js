@@ -5,6 +5,7 @@ import { addDays, today } from './store.js';
 import { fullName, letter, noteName, notesOfClass, octaveMiss, pc, sci, setNotation, usesOctaveNumbers } from './notes.js';
 import { wait } from './audio.js';
 import { icon, star } from './icons.js';
+import { drawStaff, markStaff } from './staff.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 
 export const SEGMENT_NAMES = {
@@ -387,12 +388,17 @@ export class LessonRunner {
     this.stage.innerHTML = `
       ${this.#head(step)}
       <div class="explain-body">${step.body}</div>
+      ${step.staff ? [].concat(step.staff).map((_, k) => `<div class="staff" data-fig="${k}"></div>`).join('') : ''}
       <div class="footer-actions">
         ${step.demo ? `<button class="btn" data-act="demo">${icon.play()}聽示範</button>` : ''}
         <span class="spacer"></span>
         <button class="btn btn-primary" data-act="next">繼續${icon.next()}</button>
       </div>`;
     for (const [n, kind, text] of step.keys || []) this.kb.mark(n, kind, text);
+    // Notation figures: { notes, clef, time, label }.
+    [].concat(step.staff || []).forEach((fig, k) => {
+      drawStaff(this.stage.querySelector(`[data-fig="${k}"]`), fig.notes, fig).catch(() => {});
+    });
     this.#announce(`${step.title}。${step.body}`);
     const demoBtn = this.stage.querySelector('[data-act="demo"]');
     if (demoBtn) demoBtn.onclick = () => this.#demo(step.demo, { bpm: step.bpm || 80 });
@@ -442,9 +448,12 @@ export class LessonRunner {
         ${this.#head(step, '找音')}
         ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
         ${this.#dots(results, i, targets.length)}
-        <p class="prompt">${promptText}</p>
+        ${step.staff ? '<p class="prompt">彈出譜上的這個音</p><div class="staff staff-one" data-el="staff"></div>' : `<p class="prompt">${promptText}</p>`}
         <p class="feedback"></p>`;
-      this.#announce(`第 ${i + 1} 題，共 ${targets.length} 題。${promptText}。${i === 0 ? step.instruction || '' : ''}`);
+      // Reading steps show the note on the staff instead of its name (screen
+      // readers still hear the name, since they cannot see the staff).
+      if (step.staff) drawStaff(this.stage.querySelector('[data-el="staff"]'), [{ n: t, d: 4 }], { clef: step.clef, label: '譜上的一個音' }).catch(() => {});
+      this.#announce(`第 ${i + 1} 題，共 ${targets.length} 題。${step.staff ? `譜上的音是 ${fullName(t)}` : promptText}。${i === 0 ? step.instruction || '' : ''}`);
       const matches = (n) => (exact ? n === t : pc(n) === pc(t));
       // The lit key carries its letter so the learner reads the name, not just the light.
       const showHint = () => {
@@ -569,6 +578,200 @@ export class LessonRunner {
       this.kb.clearMarks();
     }
     return { total: items.length, right: results.filter(Boolean).length, misses };
+  }
+
+  // Play a rhythm in time with a metronome. Each note is graded 準 / 早 / 晚 / 漏
+  // by when it was played; with pitches in the pattern, the pitch must match too.
+  // The learner can try again; the first take is the graded one.
+  async step_rhythm(step) {
+    const pattern = step.pattern; // [{ d, n? }] — n null = rest, n omitted = any key
+    const notes = pattern.map((x, i) => ({ ...x, i })).filter((x) => x.n !== null);
+    const totalBeats = pattern.reduce((s, x) => s + x.d, 0);
+    let bpm = step.bpm || 72;
+    const countIn = step.countIn ?? 4;
+    const pitched = pattern.some((x) => typeof x.n === 'number' || Array.isArray(x.n));
+    this.stage.innerHTML = `
+      ${this.#head(step, '節奏')}
+      ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
+      <div class="staff" data-el="staff"></div>
+      <div class="lane" data-el="lane" aria-hidden="true"><i class="playhead" data-el="head"></i></div>
+      <div class="row tempo">
+        <label>速度 <input type="range" min="${Math.max(40, bpm - 30)}" max="${bpm + 30}" step="2" value="${bpm}" data-el="bpm"> <span data-el="bpmv">${bpm}</span> BPM</label>
+      </div>
+      <p class="feedback"></p>
+      <div class="hits" data-el="hits"></div>
+      <div class="footer-actions">
+        <button class="btn" data-act="demo">${icon.play()}先聽一次</button>
+        <span class="spacer"></span>
+        <button class="btn btn-primary" data-act="go">開始（預備 ${countIn} 拍）</button>
+      </div>`;
+    const $ = (s) => this.stage.querySelector(s);
+    const staffEl = $('[data-el="staff"]');
+    let drawn = null;
+    try {
+      drawn = await drawStaff(staffEl, pattern.map((x) => ({ n: x.n === undefined ? 60 : x.n, d: x.d })), {
+        clef: pitched ? step.clef : 'rhythm', time: '4/4', label: step.title || '節奏譜',
+      });
+    } catch {
+      staffEl.innerHTML = '<p class="muted small">（譜例載入失敗，仍可照下方時間軸練習）</p>';
+    }
+    // Timeline: one block per note/rest, width proportional to its length.
+    const lane = $('[data-el="lane"]');
+    let at = 0;
+    const blocks = pattern.map((x) => {
+      const b = document.createElement('span');
+      b.className = `blk${x.n === null ? ' rest' : ''}`;
+      b.style.left = `${(at / totalBeats) * 100}%`;
+      b.style.width = `${(x.d / totalBeats) * 100}%`;
+      b.textContent = x.n === null ? '休' : typeof x.n === 'number' ? noteName(x.n) : '';
+      at += x.d;
+      lane.appendChild(b);
+      return b;
+    });
+    for (let b = 1; b < totalBeats; b++) {
+      const t = document.createElement('i');
+      t.className = `tick${b % 4 === 0 ? ' bar' : ''}`;
+      t.style.left = `${(b / totalBeats) * 100}%`;
+      lane.appendChild(t);
+    }
+    const slider = $('[data-el="bpm"]');
+    slider.oninput = () => { bpm = Number(slider.value); $('[data-el="bpmv"]').textContent = bpm; };
+    this.#announce(`${step.title || step.kicker || '節奏'}。${step.instruction || ''}共 ${notes.length} 個音，${totalBeats} 拍。按「開始」後先聽 ${countIn} 下預備拍，再跟著節拍器彈。`);
+
+    const onsetsOf = (start, beat) => {
+      let t = start;
+      return pattern.map((x) => { const o = { ...x, t }; t += x.d * beat; return o; }).filter((x) => x.n !== null);
+    };
+    const schedule = (withNotes) => {
+      this.piano.unlock();
+      const ctx = this.piano.ctx;
+      const beat = 60 / bpm;
+      const t0 = ctx.currentTime + 0.25;
+      const start = t0 + countIn * beat;
+      for (let k = 0; k < countIn + Math.ceil(totalBeats); k++) this.piano.click(t0 + k * beat, k % 4 === 0);
+      if (withNotes) {
+        for (const o of onsetsOf(start, beat)) {
+          [].concat(o.n === undefined ? 60 : o.n).forEach((n) => this.piano.noteAt(n, o.t, o.d * beat * 0.85));
+        }
+      }
+      return { ctx, beat, start, end: start + totalBeats * beat };
+    };
+    const animate = (timing, until) => new Promise((resolve) => {
+      // Animation frames pause in background tabs; a timer still ends the take on schedule.
+      const fallback = setTimeout(resolve, Math.max(0, until - timing.ctx.currentTime) * 1000 + 100);
+      const done = resolve;
+      resolve = () => { clearTimeout(fallback); done(); };
+      const head = $('[data-el="head"]');
+      const frame = () => {
+        if (this.signal.aborted || !head.isConnected) return resolve();
+        const now = timing.ctx.currentTime - this.piano.outputDelay;
+        const p = Math.min(1, Math.max(0, (now - timing.start) / (timing.end - timing.start)));
+        head.style.left = `${p * 100}%`;
+        head.classList.toggle('counting', now < timing.start);
+        if (drawn) {
+          const beatPos = (now - timing.start) / timing.beat;
+          let acc = 0;
+          const cur = pattern.findIndex((x) => { const hit = beatPos >= acc && beatPos < acc + x.d; acc += x.d; return hit; });
+          markStaff(drawn, pattern.map((_, i) => (i === cur ? 'cur' : '')));
+        }
+        if (timing.ctx.currentTime < until) requestAnimationFrame(frame);
+        else resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+
+    $('[data-act="demo"]').onclick = async () => {
+      const t = schedule(true);
+      await animate(t, t.end + 0.2);
+      if (drawn) markStaff(drawn, []);
+    };
+
+    let first = null;
+    const goBtn = $('[data-act="go"]');
+    let armed = false; // true when "再試一次" was just clicked
+    for (;;) {
+      if (!armed) await this.#click(goBtn);
+      armed = false;
+      goBtn.disabled = true;
+      $('[data-act="demo"]').disabled = true;
+      $('[data-el="hits"]').innerHTML = '';
+      this.#feedback('');
+      lane.querySelectorAll('.hit').forEach((h) => h.remove());
+      blocks.forEach((b) => b.classList.remove('ok', 'early', 'late', 'miss'));
+      if (pitched && step.hint !== 'none') notes.forEach((x) => [].concat(x.n).forEach((n) => this.kb.mark(n, 'soft')));
+      const timing = schedule(false);
+      // Collect key presses (in AudioContext time, as heard through the speakers).
+      const played = [];
+      const onNote = (e) => {
+        if (document.querySelector('dialog[open]')) return;
+        const { ctx } = timing;
+        const t = ctx.currentTime - (performance.now() - (e.detail.time ?? performance.now())) / 1000 - this.piano.outputDelay;
+        if (t < timing.start - timing.beat * 0.75 || t > timing.end + 0.3) return;
+        played.push({ t, n: e.detail.note });
+        const h = document.createElement('i');
+        h.className = 'hit';
+        h.style.left = `${Math.min(100, Math.max(0, ((t - timing.start) / (timing.end - timing.start)) * 100))}%`;
+        lane.appendChild(h);
+      };
+      this.hub.addEventListener('noteon', onNote, { signal: this.signal });
+      await animate(timing, timing.end + 0.6);
+      this.hub.removeEventListener('noteon', onNote);
+      if (this.signal.aborted) throw new Aborted();
+      this.kb.clearMarks();
+      if (drawn) markStaff(drawn, []);
+
+      // Match each expected onset to the nearest unused press within ±0.3 s.
+      const expected = onsetsOf(timing.start, timing.beat);
+      const used = new Set();
+      const tally = { ok: 0, early: 0, late: 0, miss: 0, wrong: 0 };
+      expected.forEach((o) => {
+        let best = -1;
+        played.forEach((p, k) => {
+          if (used.has(k) || Math.abs(p.t - o.t) > 0.3) return;
+          if (best < 0 || Math.abs(p.t - o.t) < Math.abs(played[best].t - o.t)) best = k;
+        });
+        let cls;
+        if (best < 0) cls = 'miss';
+        else {
+          used.add(best);
+          const p = played[best];
+          const want = o.n === undefined ? null : [].concat(o.n);
+          if (want && !want.includes(p.n)) cls = 'wrong';
+          else {
+            const dt = p.t - o.t;
+            cls = Math.abs(dt) <= 0.08 ? 'ok' : dt < 0 ? 'early' : 'late';
+          }
+        }
+        tally[cls]++;
+        blocks[o.i].classList.add(cls === 'wrong' ? 'miss' : cls);
+      });
+      const extra = played.length - used.size;
+      const right = tally.ok + 0.5 * (tally.early + tally.late);
+      const acc = right / expected.length;
+      $('[data-el="hits"]').innerHTML = [
+        ['ok', '準', tally.ok], ['early', '早', tally.early], ['late', '晚', tally.late],
+        ['miss', '漏', tally.miss], ['miss', '音錯', tally.wrong], ['miss', '多按', extra],
+      ].filter(([, , v], k) => v || k < 3).map(([c, l, v]) => `<span class="hit-chip ${c}">${l} ${v}</span>`).join('');
+      const msg = acc >= 0.9 ? '很穩，節奏都對上了' : acc >= 0.6 ? '大致跟上了。看看哪幾個音偏早或偏晚，再試一次會更穩' : '還沒對齊。可以先把速度調慢，或先按「先聽一次」';
+      this.#feedback(`${msg}（準 ${tally.ok}、早 ${tally.early}、晚 ${tally.late}、漏 ${tally.miss + tally.wrong}）`, acc >= 0.6 ? 'ok' : 'bad');
+      if (!first) first = { right, total: expected.length, acc };
+      goBtn.disabled = false;
+      goBtn.textContent = '再試一次';
+      goBtn.classList.remove('btn-primary');
+      $('[data-act="demo"]').disabled = false;
+      if (!this.stage.querySelector('[data-act="next"]')) {
+        goBtn.insertAdjacentHTML('afterend', `<button class="btn btn-primary" data-act="next">繼續${icon.next()}</button>`);
+      }
+      const next = this.stage.querySelector('[data-act="next"]');
+      const choice = await Promise.race([
+        this.#click(next).then(() => 'next'),
+        this.#click(goBtn, false).then(() => 'again'),
+      ]);
+      if (choice === 'next') break;
+      armed = true;
+    }
+    if (step.concept) this.store.recordConcept(step.concept, first.acc >= 0.75);
+    return { total: first.total, right: first.right, misses: first.acc < 0.75 ? [{ concept: step.concept, label: step.title || '節奏' }] : [] };
   }
 
   // Play chords, one at a time or as a progression. Any voicing counts: what
@@ -744,13 +947,20 @@ export class LessonRunner {
     this.stage.innerHTML = `
       ${this.#head(step)}
       ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
-      <div class="score" aria-label="樂句">${bars.map((b) => `<ol class="bar">${b.map(chipHtml).join('')}</ol>`).join('')}</div>
+      ${step.staff ? '<div class="staff" data-el="staff"></div>' : ''}
+      <div class="score" aria-label="樂句"${step.hideNames ? ' hidden' : ''}>${bars.map((b) => `<ol class="bar">${b.map(chipHtml).join('')}</ol>`).join('')}</div>
       <p class="feedback"></p>
       <div class="footer-actions">
         <button class="btn" data-act="demo">${icon.play()}先聽一次</button>
         <span class="muted small">等待模式：彈對了才會往下走，不必趕。</span>
       </div>`;
     const chips = [...this.stage.querySelectorAll('.note-chip')];
+    // With a staff, the phrase is read from notation; the current note is highlighted on it.
+    let staffDrawn = null;
+    const staffStates = notes.map(() => '');
+    if (step.staff) {
+      staffDrawn = await drawStaff(this.stage.querySelector('[data-el="staff"]'), notes.map((x) => ({ n: x.n, d: x.d || 1 })), { clef: step.clef, time: notes.some((x) => x.d) ? '4/4' : null, label: step.title }).catch(() => null);
+    }
     this.stage.querySelector('[data-act="demo"]').onclick = () =>
       this.#demo(notes.map((x) => ({ n: x.n, d: x.d || 1 })), { bpm: step.bpm || 90 });
     const misses = [];
@@ -763,6 +973,7 @@ export class LessonRunner {
       if (i > 0) this.#announce(`${noteName(t)}${f ? `，${f} 指` : ''}`);
       chips.forEach((c, j) => c.classList.toggle('cur', j === i));
       chips[i].scrollIntoView({ block: 'nearest' });
+      if (staffDrawn) { staffStates[i] = 'cur'; markStaff(staffDrawn, staffStates); }
       if (step.hint === 'show') {
         this.kb.mark(t, 'hint', f ? String(f) : letter(t));
         // Now-note over its key, the next two ghosted, so the hand can read ahead.
@@ -783,6 +994,7 @@ export class LessonRunner {
       }
       this.#feedback('');
       chips[i].classList.add('done');
+      if (staffDrawn) { staffStates[i] = firstTry ? 'done' : 'miss'; markStaff(staffDrawn, staffStates); }
       if (firstTry) right++;
       else {
         misses.push({ concept: step.concept, note: t });

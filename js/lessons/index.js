@@ -3,6 +3,8 @@
 // to its lesson.
 import b1 from './b1.js';
 import b2 from './b2.js';
+import b3 from './b3.js';
+import b4 from './b4.js';
 import b5 from './b5.js';
 import b6 from './b6.js';
 import a3 from './a3.js';
@@ -10,6 +12,7 @@ import a5 from './a5.js';
 import a6 from './a6.js';
 import a7 from './a7.js';
 import a8 from './a8.js';
+import a9 from './a9.js';
 
 export const TRACKS = {
   beginner: {
@@ -17,8 +20,8 @@ export const TRACKS = {
     lessons: [
       b1,
       b2,
-      { id: 'b3', num: 3, title: '節奏與拍子', desc: '四分、二分、全音符，節拍器與早/準/晚判定' },
-      { id: 'b4', num: 4, title: '認識五線譜', desc: '高音譜號、讀譜，琴鍵提示逐步關閉' },
+      b3,
+      b4,
       b5,
       b6,
     ],
@@ -34,7 +37,7 @@ export const TRACKS = {
       a6,
       a7,
       a8,
-      { id: 'a9', num: 9, title: '伴奏型與運指', desc: '左手根音五度、分解和弦、Alberti 低音的指法' },
+      a9,
     ],
   },
 };

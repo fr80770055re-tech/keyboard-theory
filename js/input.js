@@ -72,14 +72,15 @@ export class InputHub extends EventTarget {
       this.#emit('outofrange', { note });
     }
     const logical = note - (cal ? cal.offset : 0);
-    if (isOn) this.press(logical, vel / 127, 'midi');
+    if (isOn) this.press(logical, vel / 127, 'midi', e.timeStamp);
     else this.release(logical, 'midi');
   }
 
-  press(note, velocity = 0.75, source = 'pointer') {
+  // time: when the key went down (performance.now() timeline), for rhythm grading.
+  press(note, velocity = 0.75, source = 'pointer', time = performance.now()) {
     this.lastInputAt = Date.now();
     this.held.add(note);
-    this.#emit('noteon', { note, velocity, source });
+    this.#emit('noteon', { note, velocity, source, time });
   }
 
   release(note, source = 'pointer') {
@@ -99,7 +100,7 @@ export class InputHub extends EventTarget {
       // A fresh keydown for a key we think is held means its keyup was lost.
       if (down.has(n)) this.release(n, 'qwerty');
       down.add(n);
-      this.press(n, 0.75, 'qwerty');
+      this.press(n, 0.75, 'qwerty', e.timeStamp);
     });
     window.addEventListener('keyup', (e) => {
       const n = QWERTY[e.key.toLowerCase()];

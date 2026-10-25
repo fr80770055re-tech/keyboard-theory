@@ -320,6 +320,34 @@ kbd {
 .chip-mark { position: absolute; top: -7px; right: -7px; color: var(--bad); background: var(--surface); border-radius: 50%; line-height: 0; }
 .chip-mark .icon { width: 14px; height: 14px; stroke-width: 2.5; }
 
+/* Staff notation (VexFlow SVG): inherits the ink colour; states tint whole notes. */
+.staff { margin: 12px 0 8px; overflow-x: auto; }
+.staff svg { display: block; fill: var(--text); stroke: var(--text); }
+.staff .cur { fill: var(--accent); stroke: var(--accent); }
+.staff .done { fill: var(--muted); stroke: var(--muted); }
+.staff .miss { fill: var(--bad); stroke: var(--bad); }
+.staff-one svg { margin: 0; }
+
+/* Rhythm timeline: blocks sized by note length, a playhead, and where you played. */
+.lane { position: relative; height: 44px; margin: 6px 0 10px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.lane .blk { position: absolute; top: 6px; bottom: 6px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-size: .75rem; padding: 2px 6px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; }
+.lane .blk.rest { border-left-style: dashed; border-left-color: var(--line-strong); background: transparent; color: var(--muted); }
+.lane .blk.ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.lane .blk.early, .lane .blk.late { border-left-color: var(--star); background: color-mix(in srgb, var(--star) 22%, transparent); }
+.lane .blk.miss { border-left-color: var(--bad); background: color-mix(in srgb, var(--bad) 18%, transparent); }
+.lane .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.lane .tick.bar { background: var(--line-strong); width: 2px; }
+.lane .playhead { position: absolute; top: 0; bottom: 0; width: 3px; left: 0; background: var(--text); z-index: 2; }
+.lane .playhead.counting { opacity: .25; }
+.lane .hit { position: absolute; top: 2px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--text); z-index: 3; }
+.tempo label { display: inline-flex; align-items: center; gap: 8px; font-size: .9375rem; color: var(--ink-soft); }
+.tempo input { accent-color: var(--accent); width: 160px; }
+.hits { display: flex; flex-wrap: wrap; gap: 6px; }
+.hit-chip { font-size: .875rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-strong); }
+.hit-chip.ok { border-color: var(--ok); color: var(--ok); }
+.hit-chip.early, .hit-chip.late { border-color: var(--star); color: var(--star); }
+.hit-chip.miss { border-color: var(--bad); color: var(--bad); }
+
 /* Chord progressions: one chip per chord, symbol over Roman numeral. */
 .chord-bar { border-left: 0; padding: 0; flex-wrap: wrap; margin: 14px 0 6px; }
 .chord-bar:last-child { border-right: 0; }

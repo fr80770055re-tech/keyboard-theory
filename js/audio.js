@@ -73,6 +73,53 @@ export class Piano {
     };
   }
 
+  // --- scheduled playback for rhythm exercises (times are AudioContext seconds) ---
+
+  // Metronome tick; accent marks the first beat of a bar.
+  click(when, accent = false) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.value = accent ? 1760 : 1180;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(accent ? 0.35 : 0.2, when + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+    osc.connect(gain);
+    gain.connect(this.master);
+    osc.start(when);
+    osc.stop(when + 0.07);
+  }
+
+  // A piano note at an exact future time, for demos in time.
+  noteAt(note, when, dur = 0.5, velocity = 0.7) {
+    if (!this.ctx) return;
+    const gain = this.ctx.createGain();
+    gain.connect(this.master);
+    const nearest = this.#nearest(note);
+    let src;
+    if (nearest !== null) {
+      src = this.ctx.createBufferSource();
+      src.buffer = this.buffers.get(nearest);
+      src.playbackRate.value = 2 ** ((note - nearest) / 12);
+    } else {
+      src = this.ctx.createOscillator();
+      src.type = 'triangle';
+      src.frequency.value = 440 * 2 ** ((note - 69) / 12);
+    }
+    const level = 0.25 + velocity * 0.75;
+    gain.gain.setValueAtTime(level * (nearest === null ? 0.35 : 1), when);
+    gain.gain.setValueAtTime(level * (nearest === null ? 0.35 : 1), when + dur);
+    gain.gain.exponentialRampToValueAtTime(0.001, when + dur + 0.25);
+    src.connect(gain);
+    src.start(when);
+    src.stop(when + dur + 0.3);
+  }
+
+  // How late the speakers are behind the scheduled time.
+  get outputDelay() {
+    return this.ctx ? (this.ctx.outputLatency || 0) + (this.ctx.baseLatency || 0) : 0;
+  }
+
   noteOff(note, release = 0.35) {
     const v = this.voices.get(note);
     if (!v || !this.ctx) return;
