@@ -436,8 +436,8 @@ $('#set-echo').onchange = (e) => store.setSetting('echo', e.target.checked);
 $('#set-solfege').onchange = (e) => { store.setSetting('solfege', e.target.checked); setSolfege(e.target.checked); };
 $('#set-calibrate').onclick = () => {
   dlg.close();
-  if (runner) runner.exit();
-  showCalibration();
+  if (runner) runner.requestExit(showCalibration);
+  else showCalibration();
 };
 $('#set-export').onclick = () => { store.export(); msg('已下載進度檔。'); };
 $('#set-import-btn').onclick = () => $('#set-import').click();
@@ -470,7 +470,9 @@ $('#set-reset').onclick = () => {
 // Keep hands near the keys: Enter / Space = the stage's main button, L = listen again.
 // L is deliberately outside the computer-keyboard note map, so it never plays a note.
 window.addEventListener('keydown', (e) => {
-  if (!runner || dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!runner || dlg.open || $('#leave').open || e.ctrlKey || e.metaKey || e.altKey) return;
+  // A stray Esc should never drop the learner out of a lesson unasked.
+  if (e.key === 'Escape') { e.preventDefault(); runner.requestExit(null, { ask: true }); return; }
   const t = e.target;
   if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'SUMMARY')) return;
   const stage = view.querySelector('.stage');
@@ -484,7 +486,12 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-$('#brand').onclick = () => { if (runner) runner.exit(); else showHome(); };
+$('#brand').onclick = () => { if (runner) runner.requestExit(); else showHome(); };
+
+// Closing or reloading the tab mid-segment would silently restart it: warn first.
+window.addEventListener('beforeunload', (e) => {
+  if (runner?.dirty && !runner.atResult) e.preventDefault();
+});
 
 // ---------- boot ----------
 

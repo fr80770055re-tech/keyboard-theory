@@ -85,6 +85,17 @@
     </form>
   </dialog>
 
+  <dialog id="leave" class="dialog dialog-sm" aria-labelledby="leave-title" aria-describedby="leave-msg">
+    <form method="dialog" class="dialog-body">
+      <h2 id="leave-title">要離開嗎？</h2>
+      <p id="leave-msg"></p>
+      <div class="dialog-foot">
+        <button type="button" class="btn" data-choice="leave">離開</button>
+        <button type="button" class="btn btn-primary" data-choice="stay" autofocus>繼續上課</button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

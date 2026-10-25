@@ -24,9 +24,35 @@ export function noteName(n) {
   return showSolfege ? `${letter(n)}（${solfege(n)}）` : letter(n);
 }
 
-// Name with octave: "E4" or "E4（Mi）".
+// How octaves are named. 'friendly' uses only what lesson 1 teaches — 中央 C and
+// "八度" — so the middle octave is plain letters and others say 低八度/高八度.
+// 'sci' (C3, E4…) is for lessons that have taught octave numbers.
+let notation = 'friendly';
+export function setNotation(mode) { notation = mode; }
+
+function friendly(n) {
+  if (n === MIDDLE_C) return '中央 C';
+  const where = n < MIDDLE_C ? '低八度的 ' : n >= MIDDLE_C + 12 ? '高八度的 ' : '';
+  return `${where}${letter(n)}${isBlack(n) ? '（黑鍵）' : ''}`;
+}
+
+// Name with its octave, in the current notation: "E", "中央 C", "低八度的 D" or "E4".
 export function fullName(n) {
-  return showSolfege ? `${sci(n)}（${solfege(n)}）` : sci(n);
+  const base = notation === 'sci' ? sci(n) : friendly(n);
+  return showSolfege ? `${base}（${solfege(n)}）` : base;
+}
+
+export const usesOctaveNumbers = () => notation === 'sci';
+
+// When the learner played the right letter in the wrong octave, say so directly
+// instead of "這是 E，應該彈 E".
+export function octaveMiss(n, t) {
+  if (pc(n) !== pc(t) || n === t) return null;
+  const dir = n < t ? '低' : '高';
+  const gap = Math.round(Math.abs(n - t) / 12);
+  if (notation === 'sci') return `這是 ${sci(n)}，${dir}了 ${gap} 個八度。要找的是 ${sci(t)}`;
+  const where = t === MIDDLE_C ? '中央 C' : t >= MIDDLE_C && t < MIDDLE_C + 12 ? `中央 C 右邊那組的 ${letter(t)}` : fullName(t);
+  return `這個 ${letter(n)} ${dir}了${gap > 1 ? ` ${gap} 個` : '一個'}八度，要彈的是${where}`;
 }
 
 export function notesOfClass(pitchClass, low, high) {

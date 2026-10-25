@@ -380,6 +380,8 @@ body.in-lesson .view { display: flex; flex-direction: column; padding-bottom: 12
 body.in-lesson .stage { margin-top: auto; background: transparent; border: 0; border-radius: 0; padding: 12px 0 0; min-height: 0; }
 body.in-lesson .kb-wrap { padding-top: 4px; }
 body.in-lesson.result-mode .kb-wrap { display: none; }
+/* On short screens the step's buttons stay reachable at the bottom of the stage. */
+body.in-lesson .stage .footer-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 6px; margin-top: 16px; }
 /* Keys take what the lesson content leaves, so the score never hides behind them. */
 body.in-lesson .kb-keys { height: clamp(120px, min(30vh, 100dvh - 440px), 280px); }
 body.in-lesson .kb-lane { height: 58px; }
@@ -472,7 +474,8 @@ body.in-lesson .prompt .big { font-size: 3.2rem; }
 .row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .dialog-msg { min-height: 1.4em; margin: 8px 0 0; font-size: .875rem; color: var(--ink-soft); }
 .danger-zone { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 6px; }
-.dialog-foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.dialog-sm { width: min(440px, calc(100% - 32px)); }
 
 /* ---------- small screens ---------- */
 @media (max-width: 760px) {

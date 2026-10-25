@@ -43,7 +43,7 @@ export class Keyboard {
   #baseLabel(n) {
     if (isBlack(n)) return '';
     if (this.labelMode === 'all') return letter(n);
-    if (pc(n) === 0) return n === MIDDLE_C ? 'C4' : letter(n);
+    if (pc(n) === 0) return letter(n); // middle C is marked by its dot, not "C4"
     return '';
   }
 

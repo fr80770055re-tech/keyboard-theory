@@ -2,7 +2,7 @@
 // practice, piece, summary) step by step, grades input and records progress.
 // Also runs the standalone daily review, a one-segment "lesson".
 import { addDays, today } from './store.js';
-import { fullName, letter, noteName, notesOfClass, octave, pc, sci } from './notes.js';
+import { fullName, letter, noteName, notesOfClass, octaveMiss, pc, sci, setNotation, usesOctaveNumbers } from './notes.js';
 import { wait } from './audio.js';
 import { icon, star } from './icons.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
@@ -35,9 +35,13 @@ export class LessonRunner {
     this.ctrl = new AbortController();
     this.signal = this.ctrl.signal;
     this.segResults = [];
+    this.current = 0; // segment index in progress
+    this.dirty = false; // has the learner done anything in this segment yet?
+    hub.addEventListener('noteon', () => { this.dirty = true; }, { signal: this.signal });
   }
 
   async run(startSegment = 0) {
+    setNotation(this.lesson.notation || 'friendly');
     this.#renderShell();
     this.#startPracticeClock();
     // Results of earlier segments survive leaving and resuming, so the lesson's
@@ -50,7 +54,13 @@ export class LessonRunner {
       const segs = this.lesson.segments;
       for (let i = startSegment; i < segs.length; i++) {
         if (!this.lesson.isReview) this.store.updateLesson(this.lesson.id, { segment: i });
+        this.current = i;
+        this.dirty = false;
+        this.atResult = false;
         const result = await this.#runSegment(i);
+        // The segment is saved from here on: leaving now loses nothing.
+        this.dirty = false;
+        if (!this.lesson.isReview && i + 1 < segs.length) this.store.updateLesson(this.lesson.id, { segment: i + 1 });
         this.segResults[i] = result;
         if (this.lesson.isReview) return await this.#finishReview(result);
         this.store.markDay('segment');
@@ -65,6 +75,7 @@ export class LessonRunner {
       if (!(e instanceof Aborted)) throw e;
     } finally {
       clearInterval(this.clock);
+      setNotation('friendly');
       this.kb.clearMarks();
       this.kb.setLabelMode('c');
     }
@@ -75,6 +86,24 @@ export class LessonRunner {
     this.onExit();
   }
 
+  // Leaving mid-segment restarts that segment next time, so say so before it
+  // happens. Nothing to lose (segment untouched, or on a result screen): just go.
+  requestExit(after, { ask = false } = {}) {
+    const leave = () => { this.exit(); after?.(); };
+    if (!ask && (!this.dirty || this.atResult)) return leave();
+    const dlg = document.getElementById('leave');
+    const seg = this.lesson.segments[this.current];
+    dlg.querySelector('#leave-msg').innerHTML = !this.dirty || this.atResult
+      ? '目前沒有會遺失的進度。'
+      : this.lesson.isReview
+      ? '今日複習還沒做完，離開後下次要從頭開始。'
+      : `「<b>${SEGMENT_NAMES[seg.kind]}</b>」這一段還沒做完，離開後下次會從這一段的開頭重來${this.current > 0 ? `；前面完成的 ${this.current} 段都已保存` : ''}。`;
+    // Esc or 繼續上課 just closes; only 離開 leaves.
+    dlg.querySelector('[data-choice="stay"]').onclick = () => dlg.close();
+    dlg.querySelector('[data-choice="leave"]').onclick = () => { dlg.close(); leave(); };
+    dlg.showModal();
+  }
+
   // ---------- shell ----------
 
   #renderShell() {
@@ -82,7 +111,7 @@ export class LessonRunner {
     const name = this.lesson.isReview ? this.lesson.title : `第 ${this.lesson.num} 課　${this.lesson.title}`;
     this.root.innerHTML = `
       <div class="lesson-head">
-        <button class="btn btn-ghost btn-icon-text" data-act="exit" title="進度會保留在目前這一段">${icon.back()}離開</button>
+        <button class="btn btn-ghost btn-icon-text" data-act="exit" title="已完成的段落會保存；目前這一段若沒做完，下次會從頭開始">${icon.back()}離開</button>
         <h1 class="lesson-name">${name}</h1>
       </div>
       <div class="seg-row">
@@ -90,7 +119,7 @@ export class LessonRunner {
         <span class="seg-label"></span>
       </div>
       <section class="stage" aria-labelledby="stage-title"></section>`;
-    this.root.querySelector('[data-act="exit"]').onclick = () => this.exit();
+    this.root.querySelector('[data-act="exit"]').onclick = () => this.requestExit();
     this.stage = this.root.querySelector('.stage');
   }
 
@@ -138,6 +167,7 @@ export class LessonRunner {
       this.kb.clearMarks();
       this.kb.setLabelMode(step.labels || 'c');
       const r = await this[`step_${step.type}`](step, seg);
+      this.dirty = true;
       if (r && seg.graded) {
         total.total += r.total;
         total.right += r.right;
@@ -255,7 +285,11 @@ export class LessonRunner {
   #note() {
     return new Promise((resolve, reject) => {
       if (this.signal.aborted) return reject(new Aborted());
-      const onNote = (e) => { cleanup(); resolve(e.detail.note); };
+      const onNote = (e) => {
+        if (document.querySelector('dialog[open]')) return; // paused behind a dialog
+        cleanup();
+        resolve(e.detail.note);
+      };
       const onAbort = () => { cleanup(); reject(new Aborted()); };
       const cleanup = () => {
         this.hub.removeEventListener('noteon', onNote);
@@ -312,6 +346,7 @@ export class LessonRunner {
   // Result screens are the payoff: nothing is played, so the keyboard steps
   // aside and the heading and stars stay in view.
   #showResultTop() {
+    this.atResult = true;
     document.body.classList.add('result-mode');
     this.root.scrollTo(0, 0);
     this.#announceResult();
@@ -428,9 +463,8 @@ export class LessonRunner {
           firstTry = false;
           this.kb.flash(n, false);
           showHint();
-          if (exact && pc(n) === pc(t)) {
-            const dir = octave(n) < octave(t) ? '低' : '高';
-            this.#feedback(`這是 ${sci(n)}，${dir}了 ${Math.abs(octave(n) - octave(t))} 個八度。要找的是 ${sci(t)}，已標示出來`, 'bad');
+          if (exact && octaveMiss(n, t)) {
+            this.#feedback(`${octaveMiss(n, t)}，已標示出來`, 'bad');
           } else {
             this.#feedback(`這是 ${noteName(n)}，正確的鍵已標示出來`, 'bad');
           }
@@ -469,7 +503,7 @@ export class LessonRunner {
         if (!found.has(n)) {
           found.add(n);
           this.kb.mark(n, 'found');
-          this.#feedback(`找到一個 ${noteName(n)}（${sci(n)}）`, 'ok');
+          this.#feedback(usesOctaveNumbers() ? `找到一個 ${noteName(n)}（${sci(n)}）` : `找到一個 ${noteName(n)}`, 'ok');
           render();
         }
       } else {
@@ -519,9 +553,9 @@ export class LessonRunner {
         this.kb.flash(n, false);
         if (tries >= 2) {
           this.kb.mark(t, 'hint', letter(t));
-          this.#feedback(`你彈的是 ${fullName(n)}。答案是 ${fullName(t)}，已標示出來`, 'bad');
+          this.#feedback(octaveMiss(n, t) ? `${octaveMiss(n, t)}，已標示出來` : `你彈的是 ${fullName(n)}。答案是 ${fullName(t)}，已標示出來`, 'bad');
         } else {
-          this.#feedback(`不是 ${fullName(n)}。比較一下兩個音的高低，再聽一次`, 'bad');
+          this.#feedback(octaveMiss(n, t) ? `音名對了，但${octaveMiss(n, t).replace(/^這個 S+ /, '')}。再聽一次` : `不是 ${fullName(n)}。比較一下兩個音的高低，再聽一次`, 'bad');
           await this.#pause(500);
           play();
         }
@@ -590,7 +624,7 @@ export class LessonRunner {
         this.kb.flash(n, false);
         this.kb.mark(t, 'hint', f ? String(f) : letter(t));
         this.kb.cue([{ n: t, label: noteName(t), sub: f ? `${f} 指` : '' }]);
-        this.#feedback(`這是 ${fullName(n)}，應該彈 ${fullName(t)}${f ? `，用 ${f} 指` : ''}`, 'bad');
+        this.#feedback(`${octaveMiss(n, t) || `這是 ${fullName(n)}，應該彈 ${fullName(t)}`}${f ? `，用 ${f} 指` : ''}`, 'bad');
       }
       this.#feedback('');
       chips[i].classList.add('done');
