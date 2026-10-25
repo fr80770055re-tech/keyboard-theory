@@ -79,7 +79,7 @@ export default {
     {
       kind: 'summary', minutes: 6, graded: true,
       steps: [
-        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就算完成這一課。</p>'),
+        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖下一課。</p>'),
         { type: 'melody', kicker: '測驗 1：伴奏型與指法', title: '根音五度 → 分解和弦 → Alberti', hint: 'none', concept: 'accomp-patterns', notes: [...ROOT5, ...BROKEN, ...ALB.C] },
         { type: 'rhythm', kicker: '測驗 2：Alberti 節奏', title: 'C → F', pattern: timed([...ALB.C, ...ALB.C, ...ALB.F, ...ALB.F]), bpm: 66, clef: 'bass', concept: 'alberti' },
       ],

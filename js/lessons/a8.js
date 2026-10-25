@@ -66,7 +66,7 @@ export default {
     {
       kind: 'summary', minutes: 6, graded: true,
       steps: [
-        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就算完成這一課。</p>'),
+        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖下一課。</p>'),
         { type: 'chords', progression: true, bass: true, kicker: '測驗 1：ii–♭II7–I', title: 'Dm7 → D♭7 → Cmaj7', hint: 'none', concept: 'tritone-sub', chords: [SHELL.Dm7, SHELL.Db7, SHELL.Cmaj7] },
         () => ({ type: 'choice', kicker: '測驗 2：聽出代理', concept: 'tritone-ear', items: shuffleDraw(TRITONE_EAR, 2) }),
       ],

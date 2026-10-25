@@ -185,8 +185,10 @@ function lessonState(track, i) {
   const l = lessons[i];
   const playable = Boolean(l.segments);
   // Unlocked once every earlier lesson that exists is finished (lessons still in
-  // production don't block the ones after them).
-  const unlocked = lessons.slice(0, i).every((p) => !p.segments || store.lesson(p.id).completed);
+  // production don't block the ones after them). A lesson the learner already
+  // reached stays open when a new lesson is added before it.
+  const unlocked = lessons.slice(0, i).every((p) => !p.segments || store.lesson(p.id).completed)
+    || lessons.slice(i).some((p) => p.segments && store.data.lessons[p.id]);
   return { l, playable, unlocked, p: store.lesson(l.id), next: lessons[i + 1] || null };
 }
 

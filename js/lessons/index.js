@@ -7,12 +7,17 @@ import b3 from './b3.js';
 import b4 from './b4.js';
 import b5 from './b5.js';
 import b6 from './b6.js';
+import a1 from './a1.js';
+import a2 from './a2.js';
 import a3 from './a3.js';
+import a4 from './a4.js';
 import a5 from './a5.js';
 import a6 from './a6.js';
 import a7 from './a7.js';
 import a8 from './a8.js';
 import a9 from './a9.js';
+import a10 from './a10.js';
+import a11 from './a11.js';
 
 export const TRACKS = {
   beginner: {
@@ -29,15 +34,17 @@ export const TRACKS = {
   advanced: {
     name: '進階',
     lessons: [
-      { id: 'a1', num: 1, title: '音程：從聽到彈', desc: '二度到八度、大小音程聽辨' },
-      { id: 'a2', num: 2, title: '大調與小調', desc: '自然、和聲、旋律小調；關係與同主音大小調' },
+      a1,
+      a2,
       a3,
-      { id: 'a4', num: 4, title: '轉位與聲部進行', desc: '原位、第一、第二轉位與平順連接' },
+      a4,
       a5,
       a6,
       a7,
       a8,
       a9,
+      a10,
+      a11,
     ],
   },
 };

@@ -538,17 +538,22 @@ export class LessonRunner {
     const results = [];
     const misses = [];
     for (let i = 0; i < items.length; i++) {
-      const t = items[i];
+      // An item is a note, or { root, n } for intervals: hear root then n, play n.
+      const item = items[i];
+      const t = typeof item === 'number' ? item : item.n;
+      const root = typeof item === 'number' ? null : item.root;
+      const ask = root === null ? '聽，然後彈出這個音' : `從 ${fullName(root)} 出發，聽，然後彈出第二個音`;
       this.stage.innerHTML = `
         ${this.#head(step, '聽→彈')}
         ${this.#dots(results, i, items.length)}
-        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>聽，然後彈出這個音</p>
+        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>${ask}</p>
         ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
         <div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>
         <p class="feedback"></p>`;
       for (const c of step.candidates || []) this.kb.mark(c, 'soft');
-      this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。聽，然後彈出這個音。${i === 0 ? step.instruction || '' : ''}按 L 可以再聽一次。`);
-      const play = () => this.#demo([t], { bpm: 70 });
+      if (root !== null) this.kb.mark(root, 'hint', letter(root));
+      this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。${ask}。${i === 0 ? step.instruction || '' : ''}按 L 可以再聽一次。`);
+      const play = () => this.#demo(root === null ? [t] : [root, { n: t, d: 1.5 }], { bpm: 70 });
       this.stage.querySelector('[data-act="replay"]').onclick = play;
       await this.#pause(400);
       play();
@@ -793,7 +798,7 @@ export class LessonRunner {
       <p class="feedback"></p>
       <div class="footer-actions">
         <button class="btn" data-act="demo">${icon.play()}${prog ? '聽整段' : '聽這個和弦'}</button>
-        <span class="muted small">${step.bass ? '最低音要彈根音。' : '任何轉位、任何八度都可以。'}</span>
+        <span class="muted small">${step.bass ? '最低音要彈根音。' : chords.some((c) => c.low !== undefined) ? '注意最低音：斜線後面的音要在最下面。' : '任何轉位、任何八度都可以。'}</span>
       </div>`;
     const chips = [...this.stage.querySelectorAll('.chord-chip')];
     let cur = 0;
@@ -845,9 +850,11 @@ export class LessonRunner {
           const played = new Set([...recent.keys()].map(pc));
           if (!need.every((p) => played.has(p))) continue;
           const lowest = Math.min(...recent.keys());
-          if (step.bass && pc(lowest) !== c.pcs[0]) {
+          // c.low: the pitch class the lowest note must be (inversions, slash chords).
+          const wantLow = c.low ?? (step.bass ? c.pcs[0] : null);
+          if (wantLow !== null && pc(lowest) !== wantLow) {
             firstTry = false;
-            this.#feedback(`音都對了，但最低音要是根音 ${c.tones[0]}`, 'bad');
+            this.#feedback(wantLow === c.pcs[0] ? `音都對了，但最低音要是根音 ${c.tones[0]}` : `音都對了，但最低音要是 ${toneOf(wantLow)}`, 'bad');
             continue;
           }
           [...recent.keys()].forEach((k) => this.kb.flash(k, true));

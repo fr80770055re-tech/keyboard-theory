@@ -68,7 +68,26 @@ export const CH = {
   Db7: chord('D♭7', ['D♭', 'F', 'A♭', 'C♭'], [N.Db3, N.F3, N.Ab3, N.B3], { fingers: ['5', '3', '2', '1'] }),
   Ab7: chord('A♭7', ['A♭', 'C', 'E♭', 'G♭'], [N.Ab3, N.C4, N.Eb4, N.Gb4], { fingers: ['5', '3', '2', '1'] }),
   Eb7: chord('E♭7', ['E♭', 'G', 'B♭', 'D♭'], [N.Eb3, N.G3, N.Bb3, N.Db4], { fingers: ['5', '3', '2', '1'] }),
+  // diminished: stacked minor thirds
+  Bdim: chord('B°', ['B', 'D', 'F'], [N.B3, N.D4, N.F4], { fingers: ['1', '3', '5'] }),
+  Bdim7: chord('B°7', ['B', 'D', 'F', 'A♭'], [N.B3, N.D4, N.F4, N.Ab4], { fingers: ['1', '2', '3', '5'] }),
+  Csdim7: chord('C♯°7', ['C♯', 'E', 'G', 'B♭'], [N.Db4, N.E4, N.G4, N.Bb4], { fingers: ['1', '2', '3', '5'] }),
+  Dsdim7: chord('D♯°7', ['D♯', 'F♯', 'A', 'C'], [N.Eb4, N.Gb4, N.A4, N.C5], { fingers: ['1', '2', '3', '5'] }),
+  Fsdim7: chord('F♯°7', ['F♯', 'A', 'C', 'E♭'], [N.Gb3, N.A3, N.C4, N.Eb4], { fingers: ['1', '2', '3', '5'] }),
+  Gsdim7: chord('G♯°7', ['G♯', 'B', 'D', 'F'], [N.Ab3, N.B3, N.D4, N.F4], { fingers: ['1', '2', '3', '5'] }),
+  // extended chords: left-hand root, right hand 3-5-7-9 or 7-9-3-5 (the 5th is optional)
+  Cmaj9: chord('Cmaj9', ['C', 'E', 'G', 'B', 'D'], [N.C3, N.B3, N.D4, N.E4, N.G4], { fingers: ['5', '1', '2', '3', '5'], need: [0, 4, 11, 2] }),
+  Am9: chord('Am9', ['A', 'C', 'E', 'G', 'B'], [N.A3, N.C4, N.E4, N.G4, N.B4], { fingers: ['5', '1', '2', '3', '5'], need: [9, 0, 7, 11] }),
+  Dm9: chord('Dm9', ['D', 'F', 'A', 'C', 'E'], [N.D3, N.C4, N.E4, N.F4, N.A4], { fingers: ['5', '1', '2', '3', '5'], need: [2, 5, 0, 4] }),
+  G9: chord('G9', ['G', 'B', 'D', 'F', 'A'], [N.G3, N.B3, N.F4, N.A4], { fingers: ['5', '1', '3', '5'], need: [7, 11, 5, 9] }),
+  Dm11: chord('Dm11', ['D', 'F', 'A', 'C', 'E', 'G'], [N.D3, N.C4, N.F4, N.G4], { fingers: ['5', '1', '3', '4'], need: [2, 5, 0, 7] }),
+  Fmaj7s11: chord('Fmaj7♯11', ['F', 'A', 'C', 'E', 'G', 'B'], [N.F3, N.A3, N.E4, N.B4], { fingers: ['5', '1', '3', '5'], need: [5, 9, 4, 11] }),
+  G9sus: chord('G9sus4', ['G', 'C', 'D', 'F', 'A'], [N.G3, N.F4, N.A4, N.C5], { fingers: ['5', '1', '2', '4'], need: [7, 0, 5, 9] }),
+  G13: chord('G13', ['G', 'B', 'D', 'F', 'A', 'E'], [N.G3, N.B3, N.E4, N.F4, N.A4], { fingers: ['5', '1', '2', '3', '5'], need: [7, 11, 5, 4] }),
 };
+
+// The same chord over a given bass (left hand): `low` makes the bass the required lowest note.
+export const over = (c, sym, roman, voicing) => ({ ...c, sym, roman, voicing, fingers: undefined, low: voicing[0] % 12 });
 
 // Guide-tone (shell) voicings: left-hand root + right-hand 3rd & 7th, moving by
 // the smallest steps. Note G7 and D♭7 share the same right hand (B and F).
@@ -81,6 +100,42 @@ export const SHELL = {
   Eb7: shell(CH.Eb7, [N.Eb3, N.Db4, N.G4], 'subV/ii'),
   Fmaj7: shell(CH.Fmaj7, [N.F3, N.A3, N.E4], 'IVmaj7'),
 };
+
+// Triads with a required lowest note (`low`, a pitch class): the bass decides
+// the name. C = root position, C/E = 1st inversion, C/G = 2nd inversion.
+const inv = (c, sym, voicing, fingers) => ({ ...c, sym, voicing, fingers, low: voicing[0] % 12 });
+export const INV = {
+  C: inv(CH.C, 'C', [N.C4, N.E4, N.G4], ['1', '3', '5']),
+  C_E: inv(CH.C, 'C/E', [N.E4, N.G4, N.C5], ['1', '2', '5']),
+  C_G: inv(CH.C, 'C/G', [N.G3, N.C4, N.E4], ['1', '3', '5']),
+  F: inv(CH.F, 'F', [N.F3, N.A3, N.C4], ['1', '3', '5']),
+  F_A: inv(CH.F, 'F/A', [N.A3, N.C4, N.F4], ['1', '2', '5']),
+  F_C: inv(CH.F, 'F/C', [N.C4, N.F4, N.A4], ['1', '3', '5']),
+  G: inv(CH.G, 'G', [N.G3, N.B3, N.D4], ['1', '3', '5']),
+  G_B: inv(CH.G, 'G/B', [N.B3, N.D4, N.G4], ['1', '2', '5']),
+  G_D: inv(CH.G, 'G/D', [N.D4, N.G4, N.B4], ['1', '3', '5']),
+  Am: inv(CH.Am, 'Am', [N.A3, N.C4, N.E4], ['1', '3', '5']),
+  Am_C: inv(CH.Am, 'Am/C', [N.C4, N.E4, N.A4], ['1', '2', '5']),
+  Am_E: inv(CH.Am, 'Am/E', [N.E4, N.A4, N.C5], ['1', '3', '5']),
+  Dm_F: inv(CH.Dm, 'Dm/F', [N.F3, N.A3, N.D4], ['1', '2', '5']),
+  Em_G: inv(CH.Em, 'Em/G', [N.G3, N.B3, N.E4], ['1', '2', '5']),
+};
+
+// Scales from A (A3–A4), as note lists. A minor and A major need only sharps,
+// so every name on screen is spelled correctly.
+export const SCALE = {
+  major: [N.A3, N.B3, N.Db4, N.D4, N.E4, N.Gb4, N.Ab4, N.A4],
+  natural: [N.A3, N.B3, N.C4, N.D4, N.E4, N.F4, N.G4, N.A4],
+  harmonic: [N.A3, N.B3, N.C4, N.D4, N.E4, N.F4, N.Ab4, N.A4],
+  melodic: [N.A3, N.B3, N.C4, N.D4, N.E4, N.Gb4, N.Ab4, N.A4],
+};
+// Fingering for these eight-note scales (same as C major): right hand up
+// 1-2-3 | thumb under | 1-2-3-4-5, down the reverse; left hand up 5-4-3-2-1 | 3 over | 2-1.
+const RH = [1, 2, 3, 1, 2, 3, 4, 5];
+const LH = [5, 4, 3, 2, 1, 3, 2, 1];
+export const rhUp = (s) => s.map((n, i) => ({ n, f: RH[i] }));
+export const rhDown = (s) => [...s].reverse().map((n, i) => ({ n, f: RH[7 - i] }));
+export const lhUp = (s) => s.map((n, i) => ({ n, f: LH[i] }));
 
 // Demo sequence for a list of chords (two beats each).
 export const play = (chords, d = 2) => chords.map((c) => ({ n: c.voicing, d }));
