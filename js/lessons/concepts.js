@@ -167,6 +167,37 @@ export const EXT_EAR = [
 // ii9 – V13 – Imaj9: the right hand moves one finger at a time.
 export const EXT_251 = [as(CH.Dm9, 'ii9'), as(CH.G13, 'V13'), as(CH.Cmaj9, 'Imaj9')];
 
+// Diatonic triads of C major. DIATONIC_UP: root position from the low C, the
+// same 1-3-5 shape moved up one white key at a time.
+const DEGREES = [[CH.C, 'I'], [CH.Dm, 'ii'], [CH.Em, 'iii'], [CH.F, 'IV'], [CH.G, 'V'], [CH.Am, 'vi'], [CH.Bdim, 'vii°']];
+const LOW_WHITE = [N.C3, N.D3, N.E3, N.F3, N.G3, N.A3, N.B3, N.C4, N.D4, N.E4, N.F4, N.G4];
+export const DIATONIC_UP = [...DEGREES, [CH.C, 'I']].map(([c, roman], i) => as(c, roman, {
+  voicing: [LOW_WHITE[i], LOW_WHITE[i + 2], LOW_WHITE[i + 4]], fingers: ['1', '3', '5'],
+}));
+export const DIATONIC = DEGREES.map(([c, roman]) => as(c, roman));
+const tq = (c, answer, explain) => ({
+  prompt: '這個三和弦是大、小，還是減？',
+  play: [...c.voicing.map((n) => ({ n, d: 0.5 })), { n: c.voicing, d: 2 }],
+  options: ['大三和弦', '小三和弦', '減三和弦'], answer, explain,
+});
+export const TRIAD_EAR = [
+  tq(CH.C, 0, '下面大三度、上面小三度：明亮。'),
+  tq(CH.F, 0, 'F–A 是大三度：和 C 一樣明亮。'),
+  tq(CH.G, 0, 'G–B 是大三度：大三和弦。'),
+  tq(CH.Dm, 1, 'D–F 只有 3 個半音：小三和弦，柔和偏暗。'),
+  tq(CH.Em, 1, 'E–G 是小三度：小三和弦。'),
+  tq(CH.Am, 1, 'A–C 是小三度：小三和弦。'),
+  tq(CH.Bdim, 2, '兩個小三度疊起來：緊、不穩定，想往 C 走。'),
+];
+export const ROMAN_QUIZ = [
+  { prompt: 'C 大調的 vi 級和弦是？', options: ['Am', 'Em', 'F'], answer: 0, explain: '從 C 數到第六個音是 A，A–C–E 是小三和弦。' },
+  { prompt: 'C 大調的 V 級和弦是？', options: ['G', 'Gm', 'F'], answer: 0, explain: 'G–B–D：大三和弦，所以用大寫 V。' },
+  { prompt: '大調裡哪三級是大三和弦？', options: ['I、IV、V', 'ii、iii、vi', 'I、ii、iii'], answer: 0, explain: '大小小大大小減：I、IV、V 是大三和弦。' },
+  { prompt: 'C 大調的 vii° 是哪個和弦？', options: ['B°（B–D–F）', 'Bm（B–D–F♯）', 'B（B–D♯–F♯）'], answer: 0, explain: '只用白鍵：B–D–F，兩個小三度。' },
+  { prompt: 'Dm 在 C 大調裡是第幾級？', options: ['ii', 'iii', 'IV'], answer: 0, explain: 'D 是音階第二個音，小三和弦用小寫 ii。' },
+  { prompt: '順階三和弦各再疊一層三度，V 級會變成哪個和弦？', options: ['G7（屬七）', 'Gmaj7（大七）', 'Gm7（小七）'], answer: 0, explain: 'G–B–D 加上 F：屬七和弦，這是 V 想回家的原因（進階第 3 課）。' },
+];
+
 export const CONCEPTS = {
   'note-C': { name: '找 C', review: () => [findNote(0, 'C')] },
   'note-D': { name: '找 D', review: () => [findNote(2, 'D')] },
@@ -307,6 +338,12 @@ export const CONCEPTS = {
     name: '哈農：平均的八分音符',
     review: () => [{ type: 'rhythm', kicker: '複習：哈農', title: '第 1 號（八分音符）', pattern: HANON.rh1Up.slice(0, 16).map(({ n }) => ({ n, d: 0.5 })), bpm: 60, clef: 'treble', concept: 'hanon-even' }],
   },
+  diatonic: {
+    name: '順階三和弦',
+    review: () => [() => ({ type: 'chords', kicker: '複習：順階三和弦', hint: 'delay', concept: 'diatonic', chords: shuffleDraw(DIATONIC, 3) })],
+  },
+  'triad-quality': { name: '聽辨大、小、減三和弦', review: () => [pickOne('triad-quality', '複習：大、小、減', TRIAD_EAR)] },
+  'diatonic-roman': { name: '級數與和弦', review: () => [pickOne('diatonic-roman', '複習：級數與和弦', ROMAN_QUIZ)] },
 };
 
 export function reviewSteps(id) {

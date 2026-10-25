@@ -647,7 +647,7 @@ export class LessonRunner {
 
     const onsetsOf = (start, beat) => {
       let t = start;
-      return pattern.map((x) => { const o = { ...x, t }; t += x.d * beat; return o; }).filter((x) => x.n !== null);
+      return pattern.map((x, i) => { const o = { ...x, i, t }; t += x.d * beat; return o; }).filter((x) => x.n !== null);
     };
     const schedule = (withNotes) => {
       this.piano.unlock();

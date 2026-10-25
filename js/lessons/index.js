@@ -8,6 +8,7 @@ import b4 from './b4.js';
 import b5 from './b5.js';
 import b6 from './b6.js';
 import b7 from './b7.js';
+import b8 from './b8.js';
 import a1 from './a1.js';
 import a2 from './a2.js';
 import a3 from './a3.js';
@@ -31,6 +32,7 @@ export const TRACKS = {
       b5,
       b6,
       b7,
+      b8,
     ],
   },
   advanced: {

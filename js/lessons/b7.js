@@ -75,7 +75,7 @@ export default {
     {
       kind: 'summary', minutes: 6, graded: true,
       steps: [
-        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就算完成這一課。</p>'),
+        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖下一課：順階和弦。</p>'),
         { type: 'melody', kicker: '測驗 1：左手', title: '左手第 1 號 ↑↓', hint: 'none', concept: 'hanon', notes: LH1 },
         { type: 'melody', kicker: '測驗 2：第 2 號', title: '第 2 號 ↓', hint: 'none', concept: 'hanon', notes: HANON.rh2Down },
         { type: 'rhythm', kicker: '測驗 3：平均', title: '第 1 號 ↓（八分音符）', pattern: eighths(HANON.rh1Down.slice(0, 16)), bpm: 60, clef: 'treble', concept: 'hanon-even' },
