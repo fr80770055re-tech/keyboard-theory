@@ -7,7 +7,7 @@
   --ink-soft: #4a443a;
   --muted: #655e52;
   --line: #ddd4c3;
-  --line-strong: #bfb39d;
+  --line-strong: #9d907a;
   --accent: #233f7a;
   --accent-soft: #e1e5ee;
   --on-accent: #fbf8f1;
@@ -40,7 +40,7 @@
     --ink-soft: #cbc2b0;
     --muted: #a69d8b;
     --line: #36312a;
-    --line-strong: #514a3e;
+    --line-strong: #6e6655;
     --accent: #a3b8ee;
     --accent-soft: #252c3c;
     --on-accent: #11141c;
@@ -160,7 +160,7 @@ kbd {
 
 .banner {
   margin: 12px auto 0; max-width: 880px; width: calc(100% - 32px);
-  padding: 8px 8px 8px 16px; border-radius: 10px; background: var(--bad-soft);
+  padding: 8px 8px 8px 16px; border-radius: 10px; background: var(--accent-soft);
   display: flex; gap: 12px; align-items: center; justify-content: space-between;
 }
 .banner[hidden] { display: none; }
@@ -239,6 +239,33 @@ kbd {
 [data-l="3"] { background: var(--accent) !important; }
 .cal i.today { outline: 1.5px solid var(--text); outline-offset: 1px; }
 .cal-legend { display: flex; align-items: center; gap: 3px; font-size: .75rem; color: var(--muted); margin-top: 8px; max-width: 182px; }
+
+/* ---------- daily review ---------- */
+.daily {
+  display: flex; gap: 28px 40px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;
+  padding-bottom: 28px; margin-bottom: 4px; border-bottom: 1px solid var(--line-strong);
+}
+.daily-text { flex: 1 1 380px; }
+.daily-actions { margin-top: 14px; }
+.daily-streak { flex: none; }
+.streak-num { margin: 0 0 8px; color: var(--muted); }
+.streak-num b { font-family: var(--font-display); font-size: 2.6rem; line-height: 1; color: var(--text); margin-right: 4px; }
+.week { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.week li { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.week .dot { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.week .dot .icon { width: 15px; height: 15px; stroke-width: 2.5; }
+.week li.on .dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.week li.today .dot { box-shadow: 0 0 0 3px var(--accent-soft); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.daily.compact { padding: 18px 0; align-items: center; }
+.daily.compact h2 { margin: 0 0 .2em; }
+.daily.compact .lead { font-size: 1rem; margin: 0; }
+.daily.compact .daily-actions { margin-top: 10px; }
+.week small { font-size: .75rem; color: var(--muted); }
+.week li.today small { color: var(--text); font-weight: 600; }
+.hero.hero-sm { align-items: center; padding: 20px 0; }
+.hero.hero-sm h2 { margin: 0 0 .2em; }
+.hero.hero-sm .lead { font-size: 1rem; }
 
 /* ---------- lesson ---------- */
 .lesson-head { display: flex; align-items: center; gap: 8px; margin: -12px 0 14px -12px; }
@@ -342,10 +369,40 @@ body.kb-off .kb-wrap { display: none; }
 .kb-now { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .kb-scroll { overflow-x: auto; }
 .keyboard {
-  position: relative; max-width: 1100px; min-width: calc(var(--whites, 15) * 30px);
-  height: clamp(118px, 17vh, 160px); margin: 0 auto;
-  display: flex; user-select: none; touch-action: none;
+  max-width: 1100px; min-width: calc(var(--whites, 15) * 30px); margin: 0 auto;
+  user-select: none; touch-action: none;
 }
+.kb-keys { position: relative; display: flex; height: clamp(118px, 17vh, 160px); }
+.kb-lane { position: relative; height: 0; overflow: visible; }
+
+/* ---------- lesson mode: the keyboard is the stage ---------- */
+body.in-lesson .view { display: flex; flex-direction: column; padding-bottom: 12px; }
+body.in-lesson .stage { margin-top: auto; background: transparent; border: 0; border-radius: 0; padding: 12px 0 0; min-height: 0; }
+body.in-lesson .kb-wrap { padding-top: 4px; }
+/* Keys take what the lesson content leaves, so the score never hides behind them. */
+body.in-lesson .kb-keys { height: clamp(120px, min(30vh, 100dvh - 440px), 280px); }
+body.in-lesson .kb-lane { height: 58px; }
+body.in-lesson .prompt { font-size: 1.8rem; }
+body.in-lesson .prompt .big { font-size: 3.2rem; }
+
+.cue {
+  position: absolute; bottom: 10px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; line-height: 1.15;
+  padding: 4px 10px 3px; border-radius: 8px; white-space: nowrap;
+  background: var(--accent); color: var(--on-accent);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+  animation: cue-in .3s var(--ease-out) both;
+}
+.cue::after {
+  content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent; border-bottom: 0; border-top-color: var(--accent);
+}
+.cue b { font-family: var(--font-display); font-size: 1.15rem; }
+.cue small { font-size: .6875rem; opacity: .9; }
+.cue-next { background: var(--surface); color: var(--muted); border: 1px dashed var(--line-strong); box-shadow: none; padding: 2px 8px; bottom: 14px; }
+.cue-next::after { display: none; }
+.cue-next b { font-size: .9375rem; font-weight: 500; }
+@keyframes cue-in { from { transform: translate(-50%, 6px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .key {
   position: relative; cursor: pointer;
   display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
@@ -436,6 +493,10 @@ body.kb-off .kb-wrap { display: none; }
   .seg-label { padding-top: 0; }
   .calib-steps { flex-direction: column; }
   .keyboard { min-width: calc(var(--whites, 15) * 32px); }
+  body.in-lesson .kb-keys { height: clamp(140px, 22vh, 190px); }
+  body.in-lesson .kb-lane { height: 50px; }
+  body.in-lesson .prompt { font-size: 1.5rem; }
+  body.in-lesson .prompt .big { font-size: 2.6rem; }
 }
 
 @media (max-width: 440px) {

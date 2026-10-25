@@ -48,8 +48,11 @@ export class Keyboard {
   }
 
   render() {
-    this.el.innerHTML = '';
+    this.el.innerHTML = '<div class="kb-lane" aria-hidden="true"></div><div class="kb-keys"></div>';
+    this.lane = this.el.querySelector('.kb-lane');
+    const keysEl = this.el.querySelector('.kb-keys');
     this.keys.clear();
+    this.centers = new Map(); // note -> horizontal center, % of keyboard width
     const whites = [];
     for (let n = this.low; n <= this.high; n++) if (!isBlack(n)) whites.push(n);
     this.el.style.setProperty('--whites', whites.length);
@@ -65,12 +68,24 @@ export class Keyboard {
         const center = (whiteIndex + 1 + BLACK_OFFSET[pc(n)]) * w;
         k.style.width = `${w * 0.62}%`;
         k.style.left = `${center - w * 0.31}%`;
+        this.centers.set(n, center);
       } else {
         whiteIndex++;
+        this.centers.set(n, (whiteIndex + 0.5) * w);
       }
-      this.el.appendChild(k);
+      keysEl.appendChild(k);
       this.keys.set(n, k);
     }
+  }
+
+  // Note cues in the lane right above the keys, Synthesia-style: the note to play
+  // now sits over its key; upcoming notes are ghosted. items: [{ n, label, sub, next }]
+  cue(items = []) {
+    if (!this.lane) return;
+    this.lane.innerHTML = items
+      .filter((x) => this.centers.has(x.n))
+      .map((x) => `<span class="cue ${x.next ? 'cue-next' : 'cue-now'}" style="left:${this.centers.get(x.n)}%"><b>${x.label}</b>${x.sub ? `<small>${x.sub}</small>` : ''}</span>`)
+      .join('');
   }
 
   #bindPointer() {
@@ -130,6 +145,7 @@ export class Keyboard {
   }
 
   clearMarks() {
+    this.cue([]);
     for (const n of this.keys.keys()) {
       this.unmark(n);
       this.#endFlash(n);

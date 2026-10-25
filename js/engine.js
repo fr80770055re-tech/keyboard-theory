@@ -1,6 +1,7 @@
 // Lesson runner: plays a lesson's five segments (warm-up, new concept, guided
 // practice, piece, summary) step by step, grades input and records progress.
 // Also runs the standalone daily review, a one-segment "lesson".
+import { addDays, today } from './store.js';
 import { fullName, letter, noteName, notesOfClass, octave, pc, sci } from './notes.js';
 import { wait } from './audio.js';
 import { icon, star } from './icons.js';
@@ -38,6 +39,12 @@ export class LessonRunner {
   async run(startSegment = 0) {
     this.#renderShell();
     this.#startPracticeClock();
+    // Results of earlier segments survive leaving and resuming, so the lesson's
+    // stars can reflect the whole lesson.
+    if (!this.lesson.isReview) {
+      const saved = this.store.lesson(this.lesson.id).segResults || [];
+      this.segResults = startSegment > 0 ? saved.slice(0, startSegment) : [];
+    }
     try {
       const segs = this.lesson.segments;
       for (let i = startSegment; i < segs.length; i++) {
@@ -45,6 +52,11 @@ export class LessonRunner {
         const result = await this.#runSegment(i);
         this.segResults[i] = result;
         if (this.lesson.isReview) return await this.#finishReview(result);
+        this.store.markDay('segment');
+        if (segs[i].graded) {
+          const keep = this.segResults.map((r) => r && { acc: r.acc, total: r.total, right: r.right });
+          this.store.updateLesson(this.lesson.id, { segResults: keep });
+        }
         if (segs[i].graded && segs[i].kind !== 'summary') await this.#showSegmentResult(i, result);
       }
       await this.#finish();
@@ -145,11 +157,9 @@ export class LessonRunner {
         ${c ? `<div class="staff-rule" aria-hidden="true"></div>` : ''}
         <h2 id="stage-title">${c ? c.title : `${SEGMENT_NAMES[seg.kind]}完成`}</h2>
         ${c ? `<p class="lead">${c.body}</p>` : ''}
-        <div class="result-score">
-          ${starsHtml(r.stars, 3, 'stars-xl pop')}
-          <p class="result-pct">一次就彈對 <b>${Math.round(r.acc * 100)}%</b></p>
-        </div>
+        ${pctHtml(r.acc)}
         ${weakHtml(r.misses)}
+        <p class="muted small">各段的正確率會一起算進這一課的星等。</p>
         <div class="footer-actions">
           ${c ? `<button class="btn" data-act="replay">${icon.play()}聽一次這首曲子</button>` : ''}
           <span class="spacer"></span>
@@ -162,46 +172,49 @@ export class LessonRunner {
   }
 
   async #finish() {
-    const summary = this.segResults[this.segResults.length - 1];
-    const stars = summary?.stars ?? 0;
+    const segs = this.lesson.segments;
+    const summary = this.segResults[segs.length - 1];
+    // Stars measure the whole lesson: guided practice, the piece and the summary
+    // quiz weigh equally. The summary quiz alone decides unlocking (70%).
+    const graded = segs.map((s, i) => (s.graded ? this.segResults[i] : null)).filter(Boolean);
+    const mastery = graded.reduce((sum, r) => sum + r.acc, 0) / (graded.length || 1);
+    const stars = starsFor(mastery);
+    const passed = (summary?.acc ?? 0) >= 0.7;
     const prev = this.store.lesson(this.lesson.id);
-    const passed = stars >= 1;
     this.store.updateLesson(this.lesson.id, {
       segment: 0,
       completed: prev.completed || passed,
-      bestStars: Math.max(prev.bestStars, stars),
+      bestStars: passed ? Math.max(prev.bestStars, stars) : prev.bestStars,
       lastStars: stars,
     });
-    this.#setSegment(this.lesson.segments.length - 1, true);
-    const allMisses = this.segResults.filter(Boolean).flatMap((r) => r.misses);
-    const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 3);
-    const rows = this.lesson.segments.map((s, i) => {
+    this.#setSegment(segs.length - 1, true);
+    const allMisses = this.segResults.filter(Boolean).flatMap((r) => r.misses || []);
+    const due = this.store.dueBy(addDays(today(), 1)).filter((id) => CONCEPTS[id]).slice(0, 3);
+    const rows = segs.map((s, i) => {
       const r = this.segResults[i];
       if (!s.graded || !r) return '';
-      return `<tr><th scope="row">${SEGMENT_NAMES[s.kind]}</th><td>${Math.round(r.acc * 100)}%</td><td>${starsHtml(r.stars)}</td></tr>`;
+      return `<tr><th scope="row">${SEGMENT_NAMES[s.kind]}</th><td>${Math.round(r.acc * 100)}%</td></tr>`;
     }).join('');
     const nextLine = !passed
-      ? '需要 <b>1 顆星</b>（正確率 70%）才能解鎖下一課。再挑戰一次總結測驗吧，只要 5 分鐘。'
+      ? `總結測驗 ${Math.round((summary?.acc ?? 0) * 100)}%，還差一點：達到 <b>70%</b> 就能解鎖下一課。再挑戰一次只要 5 分鐘。`
       : this.nextLesson?.segments
         ? `已解鎖第 ${this.nextLesson.num} 課〈${this.nextLesson.title}〉。`
-        : `第 ${this.lesson.num + 1} 課製作中。在那之前，每天回來做 5 分鐘的「今日複習」，把今天學的記牢。`;
+        : `第 ${this.lesson.num + 1} 課製作中。在那之前，每天回來做 5 分鐘的「今日複習」，把今天學的記牢，也讓連續天數一直往上加。`;
     this.stage.innerHTML = `
       <div class="result result-final">
         <div class="staff-rule" aria-hidden="true"></div>
         <h2 id="stage-title">第 ${this.lesson.num} 課完成</h2>
         <div class="result-score">
           ${starsHtml(stars, 3, 'stars-xl pop')}
-          <p class="result-pct">總結測驗 <b>${Math.round((summary?.acc ?? 0) * 100)}%</b></p>
+          <p class="result-pct">整課掌握度 <b>${Math.round(mastery * 100)}%</b></p>
         </div>
+        <table class="seg-table"><tbody>${rows}</tbody></table>
+        <p class="muted small">星等＝引導練習、實際曲目、總結測驗三段正確率的平均（95% 三顆、85% 兩顆、70% 一顆）。</p>
         <p>${nextLine}</p>
-        <details class="details">
-          <summary>各段表現與需要加強的地方</summary>
-          ${rows ? `<table class="seg-table"><tbody>${rows}</tbody></table>` : ''}
-          ${weakHtml(allMisses)}
-        </details>
-        ${due.length ? `<p class="callout">${icon.replay()}<span>下次複習會出現：<b>${due.map(conceptName).join('、')}</b></span></p>` : ''}
+        ${allMisses.length ? `<details class="details"><summary>需要加強的地方</summary>${weakHtml(allMisses)}</details>` : ''}
+        ${due.length ? `<p class="callout">${icon.replay()}<span>明天的今日複習會出現：<b>${due.map(conceptName).join('、')}</b></span></p>` : ''}
         <div class="footer-actions">
-          <button class="btn ${passed ? '' : 'btn-primary'}" data-act="retry">${passed ? '重做總結測驗，拿更多星' : '再挑戰總結測驗'}</button>
+          <button class="btn ${passed ? '' : 'btn-primary'}" data-act="retry">${passed ? '重做總結測驗' : '再挑戰總結測驗'}</button>
           <span class="spacer"></span>
           <button class="btn ${passed ? 'btn-primary' : ''}" data-act="home">回首頁</button>
         </div>
@@ -210,25 +223,22 @@ export class LessonRunner {
       this.#click(this.stage.querySelector('[data-act="retry"]'), !passed).then(() => 'retry'),
       this.#click(this.stage.querySelector('[data-act="home"]'), passed).then(() => 'home'),
     ]);
-    if (btn === 'retry') {
-      this.segResults = [];
-      return this.run(this.lesson.segments.length - 1);
-    }
+    if (btn === 'retry') return this.run(segs.length - 1);
     this.onExit();
   }
 
   async #finishReview(r) {
+    this.store.markDay('review');
     this.#setSegment(0, true);
-    const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]);
+    const streak = this.store.streak();
     this.stage.innerHTML = `
       <div class="result">
-        <h2 id="stage-title">今日複習完成</h2>
-        <div class="result-score">
-          ${starsHtml(r.stars, 3, 'stars-xl pop')}
-          <p class="result-pct">一次就彈對 <b>${Math.round(r.acc * 100)}%</b></p>
-        </div>
+        <div class="staff-rule" aria-hidden="true"></div>
+        <h2 id="stage-title">今天的複習完成了</h2>
+        <p class="lead">連續練習 <b>${streak}</b> 天。${streak >= 2 ? '保持下去，記憶會越來越穩。' : '明天再回來，連續天數就會開始累積。'}</p>
+        ${pctHtml(r.acc)}
         ${weakHtml(r.misses)}
-        <p class="muted">${due.length ? `還有 ${due.length} 個概念排在之後複習。` : '目前沒有待複習的概念，明天再來看看。'}</p>
+        <p class="muted small">答錯的概念明天會再出現；答對的會隔越來越久才複習。</p>
         <div class="footer-actions"><span class="spacer"></span><button class="btn btn-primary" data-act="home">回首頁</button></div>
       </div>`;
     await this.#click(this.stage.querySelector('[data-act="home"]'));
@@ -363,7 +373,10 @@ export class LessonRunner {
         <p class="feedback" role="status"></p>`;
       const matches = (n) => (exact ? n === t : pc(n) === pc(t));
       // The lit key carries its letter so the learner reads the name, not just the light.
-      const showHint = () => this.kb.mark(t, 'hint', step.finger?.(t) || letter(t));
+      const showHint = () => {
+        this.kb.mark(t, 'hint', step.finger?.(t) || letter(t));
+        this.kb.cue([{ n: t, label: letter(t) }]);
+      };
       if (step.hint === 'show') showHint();
       const hintTimer = step.hint === 'delay' ? setTimeout(showHint, 4000) : null;
       let firstTry = true;
@@ -394,6 +407,7 @@ export class LessonRunner {
       if (!firstTry) misses.push({ concept, note: t });
       await this.#pause(450);
       this.kb.unmark(t);
+      this.kb.cue([]);
     }
     return step.graded === false ? null : { total: targets.length, right: results.filter(Boolean).length, misses };
   }
@@ -516,7 +530,15 @@ export class LessonRunner {
     for (let i = 0; i < notes.length; i++) {
       const { n: t, f } = notes[i];
       chips.forEach((c, j) => c.classList.toggle('cur', j === i));
-      if (step.hint === 'show') this.kb.mark(t, 'hint', f ? String(f) : letter(t));
+      chips[i].scrollIntoView({ block: 'nearest' });
+      if (step.hint === 'show') {
+        this.kb.mark(t, 'hint', f ? String(f) : letter(t));
+        // Now-note over its key, the next two ghosted, so the hand can read ahead.
+        this.kb.cue([2, 1].map((k) => notes[i + k]).filter(Boolean)
+          .map((x) => ({ n: x.n, label: noteName(x.n), next: true }))
+          .filter((x) => x.n !== t)
+          .concat([{ n: t, label: noteName(t), sub: f ? `${f} 指` : '' }]));
+      }
       let firstTry = true;
       for (;;) {
         const n = await this.#note();
@@ -524,6 +546,7 @@ export class LessonRunner {
         firstTry = false;
         this.kb.flash(n, false);
         this.kb.mark(t, 'hint', f ? String(f) : letter(t));
+        this.kb.cue([{ n: t, label: noteName(t), sub: f ? `${f} 指` : '' }]);
         this.#feedback(`這是 ${fullName(n)}，應該彈 ${fullName(t)}${f ? `，用 ${f} 指` : ''}`, 'bad');
       }
       this.#feedback('');
@@ -535,6 +558,7 @@ export class LessonRunner {
         chips[i].querySelector('.chip-mark').innerHTML = icon.cross();
       }
       this.kb.unmark(t);
+      this.kb.cue([]);
     }
     chips.forEach((c) => c.classList.remove('cur'));
     if (step.concept) this.store.recordConcept(step.concept, misses.length === 0);
@@ -542,6 +566,13 @@ export class LessonRunner {
     await this.#pause(1200);
     return { total: notes.length, right, misses };
   }
+}
+
+// Segment accuracy in words as well as numbers.
+function pctHtml(acc) {
+  const pct = Math.round(acc * 100);
+  const word = acc >= 0.95 ? '非常穩' : acc >= 0.85 ? '很不錯' : acc >= 0.7 ? '大致掌握' : '還需要多練幾次';
+  return `<div class="result-score"><p class="result-pct">一次就彈對 <b>${pct}%</b> · ${word}</p></div>`;
 }
 
 function weakHtml(misses) {

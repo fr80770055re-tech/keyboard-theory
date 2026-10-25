@@ -44,15 +44,20 @@ function applyRange() {
     kb.setRange(LESSON_LOW, LESSON_HIGH);
   }
   // Without a MIDI keyboard, print the computer key on each on-screen key.
-  const qwerty = !hub.deviceName;
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const qwerty = !hub.deviceName && !touch;
   kb.setKeyHints(qwerty ? QWERTY_LABELS : null);
-  $('#kb-hint').textContent = qwerty
-    ? '沒有 MIDI 鍵盤？按琴鍵上的字母，或用滑鼠點'
-    : '用你的 MIDI 鍵盤彈奏';
+  $('#kb-hint').textContent = hub.deviceName ? '用你的 MIDI 鍵盤彈奏'
+    : touch ? '點畫面上的琴鍵彈奏' : '沒有 MIDI 鍵盤？按琴鍵上的字母，或用滑鼠點';
 }
 
 function setKeyboardVisible(on) {
   document.body.classList.toggle('kb-off', !on);
+}
+
+// In a lesson the keyboard is the stage: taller keys, a cue lane above them.
+function setLessonMode(on) {
+  document.body.classList.toggle('in-lesson', on);
 }
 
 // ---------- MIDI status & calibration prompts ----------
@@ -111,6 +116,7 @@ function showCalibration() {
   const name = hub.deviceName;
   if (!name) { showHome(); return; }
   setKeyboardVisible(true);
+  setLessonMode(false);
   let low = null;
   let high = null;
   const render = () => {
@@ -208,23 +214,55 @@ function minutesText(seconds) {
   return `${Math.round(seconds / 60)} 分鐘`;
 }
 
-function dueReview() {
-  return store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 4);
+function reviewSet() {
+  return store.reviewQueue(4).filter((id) => CONCEPTS[id]);
 }
 
-function heroHtml() {
+// The daily habit: a five-minute review that is always available once anything
+// has been learned, and that keeps the streak going between lessons.
+function dailyHtml(compact = false) {
+  const set = reviewSet();
+  const done = Boolean(store.dayOf(today())?.review);
+  const streak = store.streak();
+  const week = Array.from({ length: 7 }, (_, i) => addDays(today(), i - 6));
+  const wd = ['日', '一', '二', '三', '四', '五', '六'];
+  const strip = week.map((d) => {
+    const on = Boolean(store.dayOf(d));
+    const dow = new Date(`${d}T12:00:00`).getDay();
+    const name = d === today() ? '今天' : `星期${wd[dow]}`;
+    return `<li class="${on ? 'on' : ''} ${d === today() ? 'today' : ''}"><span class="dot" aria-hidden="true">${on ? icon.check() : ''}</span><small aria-hidden="true">${d === today() ? '今天' : wd[dow]}</small><span class="sr-only">${name}${on ? '已練習' : '未練習'}</span></li>`;
+  }).join('');
+  const H = compact ? 'h2' : 'h1';
+  return `<section class="daily ${done ? 'is-done' : ''} ${compact ? 'compact' : ''}">
+    <div class="daily-text">
+      <${H}>${done ? '今天的複習完成了' : '今日複習'}</${H}>
+      <p class="lead">${done
+        ? '明天再回來 5 分鐘，記憶會越來越穩。想多練也可以再來一輪。'
+        : `約 5 分鐘，複習 <b>${set.map((id) => CONCEPTS[id].name).join('、')}</b>。答錯的明天再出現，答對的會隔越來越久。`}</p>
+      <div class="daily-actions">
+        <button class="btn ${done || compact ? '' : 'btn-primary btn-lg'}" data-review>${icon.replay()}${done ? '再複習一輪' : '開始今日複習'}</button>
+      </div>
+    </div>
+    <div class="daily-streak" role="group" aria-label="連續練習 ${streak} 天">
+      <p class="streak-num"><b>${streak}</b> 天連續練習</p>
+      <ol class="week">${strip}</ol>
+    </div>
+  </section>`;
+}
+
+function heroHtml(secondary) {
   const track = TRACKS[homeTrack];
   const states = track.lessons.map((_, i) => lessonState(homeTrack, i));
-  const due = dueReview();
-  const reviewBtn = (primary) => `<button class="btn ${primary ? 'btn-primary btn-lg' : ''}" data-review>${icon.replay()}今日複習 · 約 5 分鐘</button>`;
+  const H = secondary ? 'h2' : 'h1';
+  const btnCls = secondary ? 'btn-primary' : 'btn-primary btn-lg';
 
   if (!states.some((s) => s.playable)) {
-    return `<section class="hero">
+    return `<section class="hero ${secondary ? 'hero-sm' : ''}">
       <div class="hero-text">
-        <h1>${track.name}課程製作中</h1>
+        <${H}>${track.name}課程製作中</${H}>
         <p class="lead">${track.name}路線的課程正在編寫。現在可以先從入門第 1 課開始，順便熟悉操作方式。</p>
       </div>
-      <button class="btn btn-primary btn-lg" data-track="beginner">改看入門課程${icon.next()}</button>
+      <button class="btn ${btnCls}" data-track="beginner">改看入門課程${icon.next()}</button>
     </section>`;
   }
   const resume = states.find((s) => s.playable && s.unlocked && s.p.segment > 0);
@@ -232,28 +270,21 @@ function heroHtml() {
   const target = resume || fresh;
   if (target) {
     const seg = target.p.segment;
-    return `<section class="hero">
+    return `<section class="hero ${secondary ? 'hero-sm' : ''}">
       <div class="hero-text">
-        <h1>第 ${target.l.num} 課　${target.l.title}</h1>
+        <${H}>第 ${target.l.num} 課　${target.l.title}</${H}>
         <p class="lead">${resume ? `上次停在第 ${seg + 1} 段「${SEGMENT_NAMES[target.l.segments[seg].kind]}」，從這一段繼續。` : target.l.desc}</p>
       </div>
-      <div class="hero-actions">
-        <button class="btn btn-primary btn-lg" data-start="${target.l.id}" data-seg="${resume ? seg : 0}">${resume ? '繼續上課' : '開始上課'}${icon.next()}</button>
-        ${due.length ? reviewBtn(false) : ''}
-      </div>
+      <button class="btn ${btnCls}" data-start="${target.l.id}" data-seg="${resume ? seg : 0}">${resume ? '繼續上課' : '開始上課'}${icon.next()}</button>
     </section>`;
   }
   const last = [...states].reverse().find((s) => s.playable && s.p.completed);
-  return `<section class="hero">
+  return `<section class="hero ${secondary ? 'hero-sm' : ''}">
     <div class="hero-text">
-      <h1>${due.length ? '今天複習一下' : '今天的複習完成了'}</h1>
-      <p class="lead">${due.length
-        ? `有 ${due.length} 個概念到了該複習的時間：<b>${due.map((id) => CONCEPTS[id].name).join('、')}</b>。`
-        : `下一課製作中。可以重玩第 ${last?.l.num ?? 1} 課，把總結測驗拿到三顆星。`}</p>
+      <${H}>第 ${(last?.l.num ?? 1) + 1} 課製作中</${H}>
+      <p class="lead">目前的課程都完成了。重玩第 ${last?.l.num ?? 1} 課可以提高星等。</p>
     </div>
-    <div class="hero-actions">
-      ${due.length ? reviewBtn(true) : `<button class="btn btn-primary btn-lg" data-start="${last?.l.id}" data-seg="0">重玩第 ${last?.l.num ?? 1} 課</button>`}
-    </div>
+    <button class="btn" data-start="${last?.l.id}" data-seg="0">重玩第 ${last?.l.num ?? 1} 課</button>
   </section>`;
 }
 
@@ -269,7 +300,7 @@ function statsHtml() {
   return `<section class="panel progress-panel">
     <h2>練習紀錄</h2>
     <dl class="stats">
-      <div><dt>連續練習</dt><dd>${store.streak()}<small> 天</small></dd></div>
+      <div><dt>累計練習</dt><dd>${Object.keys(store.data.days).length}<small> 天</small></dd></div>
       <div><dt>今天</dt><dd>${minutesText(store.practiceOn(today())).replace(' 分鐘', '<small> 分鐘</small>')}</dd></div>
       <div><dt>近 7 天</dt><dd>${store.totalMinutesLast(7)}<small> 分鐘</small></dd></div>
     </dl>
@@ -307,11 +338,16 @@ function lessonsHtml() {
 
 function showHome() {
   runner = null;
+  setLessonMode(false);
   hub.capture = null;
   kb.clearMarks();
   if (!store.level) { showLevelChoice(); return; }
   setKeyboardVisible(false);
-  view.innerHTML = `${heroHtml()}<div class="home-grid">${lessonsHtml()}${statsHtml()}</div>`;
+  // A lesson left mid-way leads; otherwise today's review does. New learners start with lesson 1.
+  const learned = store.hasLearned();
+  const midLesson = Object.values(TRACKS[homeTrack].lessons).some((l) => l.segments && store.lesson(l.id).segment > 0);
+  const top = !learned ? heroHtml(false) : midLesson ? heroHtml(false) + dailyHtml(true) : dailyHtml() + heroHtml(true);
+  view.innerHTML = `${top}<div class="home-grid">${lessonsHtml()}${statsHtml()}</div>`;
 
   view.querySelectorAll('[data-track]').forEach((b) => {
     b.onclick = () => { homeTrack = b.dataset.track; store.setLevel(homeTrack); showHome(); };
@@ -332,7 +368,7 @@ function startLesson(id, segment) {
 }
 
 function startReview() {
-  const due = dueReview();
+  const due = reviewSet();
   if (!due.length) return;
   const lesson = {
     id: 'review', isReview: true, title: '今日複習',
@@ -344,6 +380,10 @@ function startReview() {
 function launch(r, segment) {
   $('#banner').hidden = true;
   setKeyboardVisible(true);
+  setLessonMode(true);
+  // On narrow screens the keyboard scrolls; start with middle C in view.
+  const sc = $('.kb-scroll');
+  sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2;
   runner = r;
   runner.run(segment);
   view.scrollTo(0, 0);
@@ -399,6 +439,22 @@ $('#set-reset').onclick = () => {
   dlg.close();
   if (runner) runner.exit(); else showHome();
 };
+// Keep hands near the keys: Enter / Space = the stage's main button, R = listen again.
+window.addEventListener('keydown', (e) => {
+  if (!runner || dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'SUMMARY')) return;
+  const stage = view.querySelector('.stage');
+  if (!stage) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    const primary = stage.querySelector('.btn-primary');
+    if (primary) { e.preventDefault(); primary.click(); }
+  } else if (e.key.toLowerCase() === 'r') {
+    const replay = stage.querySelector('[data-act="replay"], [data-act="demo"]');
+    if (replay) { e.preventDefault(); replay.click(); }
+  }
+});
+
 $('#brand').onclick = () => { if (runner) runner.exit(); else showHome(); };
 
 // ---------- boot ----------

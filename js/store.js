@@ -13,6 +13,7 @@ const fresh = () => ({
   lessons: {}, // lessonId -> { segment, bestStars, completed, lastStars }
   concepts: {}, // conceptId -> { box, due, seen, right }
   practice: {}, // 'YYYY-MM-DD' -> seconds
+  days: {}, // 'YYYY-MM-DD' -> { review, segments }: days that count toward the streak
 });
 
 export const today = (d = new Date()) => {
@@ -48,7 +49,7 @@ class Store {
   setCalibration(device, cal) { this.data.calibration[device] = cal; this.save(); }
 
   lesson(id) {
-    return this.data.lessons[id] || { segment: 0, bestStars: 0, completed: false, lastStars: null };
+    return { segment: 0, bestStars: 0, completed: false, lastStars: null, segResults: [], ...this.data.lessons[id] };
   }
   updateLesson(id, patch) {
     this.data.lessons[id] = { ...this.lesson(id), ...patch };
@@ -58,10 +59,46 @@ class Store {
   recordConcept(id, right) {
     const c = this.data.concepts[id] || { box: 1, due: today(), seen: 0, right: 0 };
     c.seen++;
-    if (right) { c.right++; c.box = Math.min(5, c.box + 1); } else { c.box = 1; }
+    // Promote at most one box per day: many right answers in one sitting are not
+    // the same as remembering it tomorrow.
+    if (right) {
+      c.right++;
+      if (c.promoted !== today()) { c.box = Math.min(5, c.box + 1); c.promoted = today(); }
+    } else {
+      c.box = 1;
+    }
     c.due = addDays(today(), BOX_INTERVAL[c.box]);
     this.data.concepts[id] = c;
     this.save();
+  }
+
+  // Today's review set: everything due, topped up with the weakest learned
+  // concepts, so there is always a short session once anything has been learned.
+  reviewQueue(n) {
+    const due = this.dueConcepts();
+    const rest = Object.entries(this.data.concepts)
+      .filter(([id]) => !due.includes(id))
+      .sort((a, b) => a[1].box - b[1].box || a[1].right / a[1].seen - b[1].right / b[1].seen)
+      .map(([id]) => id);
+    return [...due, ...rest].slice(0, n);
+  }
+
+  hasLearned() { return Object.keys(this.data.concepts).length > 0; }
+
+  // Days that count toward the streak: a finished daily review or lesson segment.
+  markDay(kind) {
+    const t = today();
+    const d = this.data.days[t] || { review: false, segments: 0 };
+    if (kind === 'review') d.review = true; else d.segments++;
+    this.data.days[t] = d;
+    this.save();
+  }
+
+  dayOf(iso) { return this.data.days[iso] || null; }
+
+  // Concepts that will be due by a given day (e.g. tomorrow's review set).
+  dueBy(iso) {
+    return Object.entries(this.data.concepts).filter(([, c]) => c.due <= iso).map(([id]) => id);
   }
 
   // Concepts due for review, weakest first.
@@ -81,11 +118,12 @@ class Store {
 
   practiceOn(iso) { return this.data.practice[iso] || 0; }
 
+  // Consecutive active days; today not done yet doesn't break the streak.
   streak() {
     let d = today();
-    if (!this.practiceOn(d)) d = addDays(d, -1); // today not practiced yet doesn't break it
+    if (!this.dayOf(d)) d = addDays(d, -1);
     let n = 0;
-    while (this.practiceOn(d) > 0) { n++; d = addDays(d, -1); }
+    while (this.dayOf(d)) { n++; d = addDays(d, -1); }
     return n;
   }
 
