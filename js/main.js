@@ -221,7 +221,7 @@ function reviewSet() {
 
 // The daily habit: a five-minute review that is always available once anything
 // has been learned, and that keeps the streak going between lessons.
-function dailyHtml(compact = false) {
+function dailyHtml(compact = false, hideButton = false) {
   const set = reviewSet();
   const done = Boolean(store.dayOf(today())?.review);
   const streak = store.streak();
@@ -240,9 +240,9 @@ function dailyHtml(compact = false) {
       <p class="lead">${done
         ? '明天再回來 5 分鐘，記憶會越來越穩。想多練也可以再來一輪。'
         : `約 5 分鐘，複習 <b>${set.map((id) => CONCEPTS[id].name).join('、')}</b>。答錯的明天再出現，答對的會隔越來越久。`}</p>
-      <div class="daily-actions">
+      ${hideButton ? '' : `<div class="daily-actions">
         <button class="btn ${done || compact ? '' : 'btn-primary btn-lg'}" data-review>${icon.replay()}${done ? '再複習一輪' : '開始今日複習'}</button>
-      </div>
+      </div>`}
     </div>
     <div class="daily-streak" role="group" aria-label="連續練習 ${streak} 天">
       <p class="streak-num"><b>${streak}</b> 天連續練習</p>
@@ -251,42 +251,58 @@ function dailyHtml(compact = false) {
   </section>`;
 }
 
+// What a learner should do next in the course, in priority order:
+// 1. the lesson they are working through (resume or start),
+// 2. a replay they left mid-way,
+// 3. raising the lowest-starred finished lesson,
+// 4. with everything at three stars, another review round.
+function nextStep() {
+  const states = TRACKS[homeTrack].lessons.map((_, i) => lessonState(homeTrack, i));
+  if (!states.some((s) => s.playable)) return { kind: 'none' };
+  const core = states.find((s) => s.playable && s.unlocked && !s.p.completed);
+  if (core) return { kind: core.p.segment > 0 ? 'resume' : 'start', s: core };
+  const replay = states.find((s) => s.playable && s.p.completed && s.p.segment > 0);
+  if (replay) return { kind: 'replay', s: replay };
+  const improve = states.filter((s) => s.playable && s.p.completed && s.p.bestStars < 3)
+    .sort((x, y) => x.p.bestStars - y.p.bestStars)[0];
+  if (improve) return { kind: 'improve', s: improve };
+  return { kind: 'review', s: [...states].reverse().find((s) => s.playable) };
+}
+
 function heroHtml(secondary) {
   const track = TRACKS[homeTrack];
-  const states = track.lessons.map((_, i) => lessonState(homeTrack, i));
+  const next = nextStep();
   const H = secondary ? 'h2' : 'h1';
-  const btnCls = secondary ? 'btn-primary' : 'btn-primary btn-lg';
+  const cls = secondary ? '' : 'btn-primary btn-lg'; // only one filled button leads the page
+  const card = (title, lead, button) => `<section class="hero ${secondary ? 'hero-sm' : ''}">
+      <div class="hero-text"><${H}>${title}</${H}><p class="lead">${lead}</p></div>
+      ${button}
+    </section>`;
+  const { s } = next;
+  const segName = (st) => SEGMENT_NAMES[st.l.segments[st.p.segment].kind];
+  const upcoming = s && TRACKS[homeTrack].lessons.find((l) => l.num === s.l.num + 1);
+  const comingSoon = upcoming && !upcoming.segments ? `第 ${upcoming.num} 課還在製作中，` : '';
 
-  if (!states.some((s) => s.playable)) {
-    return `<section class="hero ${secondary ? 'hero-sm' : ''}">
-      <div class="hero-text">
-        <${H}>${track.name}課程製作中</${H}>
-        <p class="lead">${track.name}路線的課程正在編寫。現在可以先從入門第 1 課開始，順便熟悉操作方式。</p>
-      </div>
-      <button class="btn ${btnCls}" data-track="beginner">改看入門課程${icon.next()}</button>
-    </section>`;
+  switch (next.kind) {
+    case 'none':
+      return card(`${track.name}課程製作中`, `${track.name}路線的課程正在編寫。現在可以先從入門第 1 課開始，順便熟悉操作方式。`,
+        `<button class="btn ${cls}" data-track="beginner">改看入門課程${icon.next()}</button>`);
+    case 'resume':
+      return card(`第 ${s.l.num} 課　${s.l.title}`, `上次停在第 ${s.p.segment + 1} 段「${segName(s)}」，從這一段繼續。`,
+        `<button class="btn ${cls}" data-start="${s.l.id}" data-seg="${s.p.segment}">繼續上課${icon.next()}</button>`);
+    case 'start':
+      return card(`第 ${s.l.num} 課　${s.l.title}`, s.l.desc,
+        `<button class="btn ${cls}" data-start="${s.l.id}" data-seg="0">開始上課${icon.next()}</button>`);
+    case 'replay':
+      return card(`繼續重玩第 ${s.l.num} 課`, `重玩到第 ${s.p.segment + 1} 段「${segName(s)}」。目前最佳 ${s.p.bestStars} 顆星；這次若更好，會取代目前的紀錄。`,
+        `<button class="btn ${cls}" data-start="${s.l.id}" data-seg="${s.p.segment}">繼續重玩${icon.next()}</button>`);
+    case 'improve':
+      return card(`挑戰第 ${s.l.num} 課三顆星`, `目前最佳 ${s.p.bestStars} 顆星。${comingSoon}現在最好的加強方式是把這一課再彈一次，約 30 分鐘。`,
+        `<button class="btn ${cls}" data-start="${s.l.id}" data-seg="0">重玩第 ${s.l.num} 課${icon.next()}</button>`);
+    default:
+      return card('目前的課程都拿到三顆星了', `${comingSoon}在那之前，多做幾輪複習能讓記憶更穩。`,
+        `<button class="btn ${cls}" data-review>${icon.replay()}再複習一輪</button>`);
   }
-  const resume = states.find((s) => s.playable && s.unlocked && s.p.segment > 0);
-  const fresh = states.find((s) => s.playable && s.unlocked && !s.p.completed);
-  const target = resume || fresh;
-  if (target) {
-    const seg = target.p.segment;
-    return `<section class="hero ${secondary ? 'hero-sm' : ''}">
-      <div class="hero-text">
-        <${H}>第 ${target.l.num} 課　${target.l.title}</${H}>
-        <p class="lead">${resume ? `上次停在第 ${seg + 1} 段「${SEGMENT_NAMES[target.l.segments[seg].kind]}」，從這一段繼續。` : target.l.desc}</p>
-      </div>
-      <button class="btn ${btnCls}" data-start="${target.l.id}" data-seg="${resume ? seg : 0}">${resume ? '繼續上課' : '開始上課'}${icon.next()}</button>
-    </section>`;
-  }
-  const last = [...states].reverse().find((s) => s.playable && s.p.completed);
-  return `<section class="hero ${secondary ? 'hero-sm' : ''}">
-    <div class="hero-text">
-      <${H}>第 ${(last?.l.num ?? 1) + 1} 課製作中</${H}>
-      <p class="lead">目前的課程都完成了。重玩第 ${last?.l.num ?? 1} 課可以提高星等。</p>
-    </div>
-    <button class="btn" data-start="${last?.l.id}" data-seg="0">重玩第 ${last?.l.num ?? 1} 課</button>
-  </section>`;
 }
 
 function statsHtml() {
@@ -325,7 +341,10 @@ function lessonsHtml() {
         let right;
         if (!s.playable) right = '<span class="tag">製作中</span>';
         else if (!s.unlocked) right = `<span class="tag">${icon.lock()}完成上一課解鎖</span>`;
-        else if (s.p.segment > 0) right = `<button class="btn" data-start="${s.l.id}" data-seg="${s.p.segment}">繼續（第 ${s.p.segment + 1} 段）</button>`;
+        else if (s.p.segment > 0) {
+          // A replay in progress keeps the lesson's best stars visible.
+          right = `${s.p.completed ? starsHtml(s.p.bestStars) : ''}<button class="btn" data-start="${s.l.id}" data-seg="${s.p.segment}">${s.p.completed ? '繼續重玩' : '繼續'}（第 ${s.p.segment + 1} 段）</button>`;
+        }
         else right = `${s.p.completed ? starsHtml(s.p.bestStars) : ''}<button class="btn" data-start="${s.l.id}" data-seg="0">${s.p.completed ? '重玩' : '開始'}</button>`;
         return `<li class="lesson ${open ? '' : 'locked'} ${s.p.completed ? 'completed' : ''}">
           <span class="lesson-num" aria-hidden="true">${s.p.completed ? icon.check() : s.l.num}</span>
@@ -344,10 +363,18 @@ function showHome() {
   kb.clearMarks();
   if (!store.level) { showLevelChoice(); return; }
   setKeyboardVisible(false);
-  // A lesson left mid-way leads; otherwise today's review does. New learners start with lesson 1.
+  // Lead with one clear action. New learners start lesson 1. Unfinished course
+  // progress comes first; otherwise today's review leads until it is done, and
+  // then the next course step does, with the finished review shrunk to a row.
   const learned = store.hasLearned();
-  const midLesson = Object.values(TRACKS[homeTrack].lessons).some((l) => l.segments && store.lesson(l.id).segment > 0);
-  const top = !learned ? heroHtml(false) : midLesson ? heroHtml(false) + dailyHtml(true) : dailyHtml() + heroHtml(true);
+  const next = nextStep();
+  const reviewDone = Boolean(store.dayOf(today())?.review);
+  let top;
+  if (!learned) top = heroHtml(false);
+  else if (next.kind === 'resume') top = heroHtml(false) + dailyHtml(true);
+  // With everything at three stars, the review itself is the next step: don't offer it twice.
+  else if (!reviewDone) top = dailyHtml() + (next.kind === 'review' ? '' : heroHtml(true));
+  else top = heroHtml(false) + dailyHtml(true, next.kind === 'review');
   view.innerHTML = `${top}<div class="home-grid">${lessonsHtml()}${statsHtml()}</div>`;
 
   view.querySelectorAll('[data-track]').forEach((b) => {
