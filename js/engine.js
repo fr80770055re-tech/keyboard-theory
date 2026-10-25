@@ -12,6 +12,7 @@ export const SEGMENT_NAMES = {
 };
 
 export function starsFor(acc) {
+  acc = Math.round(acc * 100) / 100; // grade on the same percentage the learner sees
   if (acc >= 0.95) return 3;
   if (acc >= 0.85) return 2;
   if (acc >= 0.7) return 1;
@@ -132,6 +133,7 @@ export class LessonRunner {
     }
     const total = { total: 0, right: 0, misses: [] };
     for (const raw of steps) {
+      document.body.classList.remove('result-mode');
       const step = typeof raw === 'function' ? raw() : raw;
       this.kb.clearMarks();
       this.kb.setLabelMode(step.labels || 'c');
@@ -168,7 +170,8 @@ export class LessonRunner {
       </div>`;
     const replay = this.stage.querySelector('[data-act="replay"]');
     if (replay) replay.onclick = () => this.#demo(c.song, { bpm: c.bpm || 100 });
-    await this.#click(this.stage.querySelector('[data-act="next"]'));
+    this.#showResultTop();
+    await this.#click(this.stage.querySelector('[data-act="next"]'), true, false);
   }
 
   async #finish() {
@@ -219,9 +222,10 @@ export class LessonRunner {
           <button class="btn ${passed ? 'btn-primary' : ''}" data-act="home">回首頁</button>
         </div>
       </div>`;
+    this.#showResultTop();
     const btn = await Promise.race([
-      this.#click(this.stage.querySelector('[data-act="retry"]'), !passed).then(() => 'retry'),
-      this.#click(this.stage.querySelector('[data-act="home"]'), passed).then(() => 'home'),
+      this.#click(this.stage.querySelector('[data-act="retry"]'), !passed, false).then(() => 'retry'),
+      this.#click(this.stage.querySelector('[data-act="home"]'), passed, false).then(() => 'home'),
     ]);
     if (btn === 'retry') return this.run(segs.length - 1);
     this.onExit();
@@ -241,7 +245,8 @@ export class LessonRunner {
         <p class="muted small">答錯的概念明天會再出現；答對的會隔越來越久才複習。</p>
         <div class="footer-actions"><span class="spacer"></span><button class="btn btn-primary" data-act="home">回首頁</button></div>
       </div>`;
-    await this.#click(this.stage.querySelector('[data-act="home"]'));
+    this.#showResultTop();
+    await this.#click(this.stage.querySelector('[data-act="home"]'), true, false);
     this.onExit();
   }
 
@@ -261,7 +266,7 @@ export class LessonRunner {
     });
   }
 
-  #click(el, focus = true) {
+  #click(el, focus = true, reveal = true) {
     return new Promise((resolve, reject) => {
       if (this.signal.aborted) return reject(new Aborted());
       const onAbort = () => reject(new Aborted());
@@ -272,7 +277,7 @@ export class LessonRunner {
       }, { once: true });
       if (focus) {
         el.focus({ preventScroll: true });
-        el.scrollIntoView({ block: 'nearest' });
+        if (reveal) el.scrollIntoView({ block: 'nearest' });
       }
     });
   }
@@ -288,6 +293,35 @@ export class LessonRunner {
     el.className = `feedback ${kind}`;
     const ic = kind === 'ok' ? icon.check() : kind === 'bad' ? icon.cross() : '';
     el.innerHTML = text ? `${ic}<span>${text}</span>` : '';
+    const lead = kind === 'bad' ? '錯。' : kind === 'ok' && !/^(正確|答對|完美|找到|全部)/.test(text) ? '對。' : '';
+    if (text) this.#announce(`${lead}${text}`);
+  }
+
+  // The stage is re-rendered for every question, so screen readers would hear
+  // nothing. A single live region outside it speaks each prompt and result.
+  #announce(html) {
+    const el = document.getElementById('sr-live');
+    if (!el) return;
+    const text = String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    el.textContent = '';
+    clearTimeout(this.announceTimer);
+    // Clearing first lets the same sentence be announced twice in a row.
+    this.announceTimer = setTimeout(() => { el.textContent = text; }, 60);
+  }
+
+  // Result screens are the payoff: nothing is played, so the keyboard steps
+  // aside and the heading and stars stay in view.
+  #showResultTop() {
+    document.body.classList.add('result-mode');
+    this.root.scrollTo(0, 0);
+    this.#announceResult();
+  }
+
+  // Speak a result screen: its heading and score line.
+  #announceResult() {
+    const parts = ['h2', '.lead', '.result-pct'].map((s) => this.stage.querySelector(s)?.textContent).filter(Boolean);
+    const stars = this.stage.querySelector('.stars')?.getAttribute('aria-label');
+    this.#announce([...parts, stars].filter(Boolean).join('。'));
   }
 
   #demo(notes, opts) {
@@ -322,6 +356,7 @@ export class LessonRunner {
         <button class="btn btn-primary" data-act="next">繼續${icon.next()}</button>
       </div>`;
     for (const [n, kind, text] of step.keys || []) this.kb.mark(n, kind, text);
+    this.#announce(`${step.title}。${step.body}`);
     const demoBtn = this.stage.querySelector('[data-act="demo"]');
     if (demoBtn) demoBtn.onclick = () => this.#demo(step.demo, { bpm: step.bpm || 80 });
     await this.#click(this.stage.querySelector('[data-act="next"]'));
@@ -338,6 +373,7 @@ export class LessonRunner {
       </div>`;
     const last = this.stage.querySelector('[data-el="last"]');
     const timer = this.stage.querySelector('[data-el="timer"]');
+    this.#announce(`${step.title}。${step.body}`);
     const onNote = (e) => { last.textContent = fullName(e.detail.note); };
     this.hub.addEventListener('noteon', onNote, { signal: this.signal });
     let left = step.seconds;
@@ -370,7 +406,8 @@ export class LessonRunner {
         ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
         ${this.#dots(results, i, targets.length)}
         <p class="prompt">${promptText}</p>
-        <p class="feedback" role="status"></p>`;
+        <p class="feedback"></p>`;
+      this.#announce(`第 ${i + 1} 題，共 ${targets.length} 題。${promptText}。${i === 0 ? step.instruction || '' : ''}`);
       const matches = (n) => (exact ? n === t : pc(n) === pc(t));
       // The lit key carries its letter so the learner reads the name, not just the light.
       const showHint = () => {
@@ -420,10 +457,11 @@ export class LessonRunner {
       ${this.#head(step, '動手找')}
       <p class="prompt">${step.prompt}<span class="count" data-el="count"></span></p>
       ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
-      <p class="feedback" role="status"></p>`;
+      <p class="feedback"></p>`;
     const render = () => {
       this.stage.querySelector('[data-el="count"]').textContent = `${found.size} / ${targets.length}`;
     };
+    this.#announce(`${step.prompt}，共 ${targets.length} 個。${step.instruction || ''}`);
     render();
     while (found.size < targets.length) {
       const n = await this.#note();
@@ -462,8 +500,9 @@ export class LessonRunner {
         <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>聽，然後彈出這個音</p>
         ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
         <div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>
-        <p class="feedback" role="status"></p>`;
+        <p class="feedback"></p>`;
       for (const c of step.candidates || []) this.kb.mark(c, 'soft');
+      this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。聽，然後彈出這個音。${i === 0 ? step.instruction || '' : ''}按 L 可以再聽一次。`);
       const play = () => this.#demo([t], { bpm: 70 });
       this.stage.querySelector('[data-act="replay"]').onclick = play;
       await this.#pause(400);
@@ -517,7 +556,7 @@ export class LessonRunner {
       ${this.#head(step)}
       ${step.instruction ? `<p class="muted">${step.instruction}</p>` : ''}
       <div class="score" aria-label="樂句">${bars.map((b) => `<ol class="bar">${b.map(chipHtml).join('')}</ol>`).join('')}</div>
-      <p class="feedback" role="status"></p>
+      <p class="feedback"></p>
       <div class="footer-actions">
         <button class="btn" data-act="demo">${icon.play()}先聽一次</button>
         <span class="muted small">等待模式：彈對了才會往下走，不必趕。</span>
@@ -527,8 +566,12 @@ export class LessonRunner {
       this.#demo(notes.map((x) => ({ n: x.n, d: x.d || 1 })), { bpm: step.bpm || 90 });
     const misses = [];
     let right = 0;
+    const seq = notes.map((x) => noteName(x.n)).join(' ');
+    this.#announce(`${step.title}。${step.instruction || ''}共 ${notes.length} 個音：${seq}。等待模式，彈對了才會往下走。`);
     for (let i = 0; i < notes.length; i++) {
       const { n: t, f } = notes[i];
+      // After the overview, name each note as it comes up (with its finger).
+      if (i > 0) this.#announce(`${noteName(t)}${f ? `，${f} 指` : ''}`);
       chips.forEach((c, j) => c.classList.toggle('cur', j === i));
       chips[i].scrollIntoView({ block: 'nearest' });
       if (step.hint === 'show') {

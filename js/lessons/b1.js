@@ -166,8 +166,8 @@ export default {
       kind: 'summary', minutes: 5, graded: true,
       steps: [
         {
-          type: 'explain', kicker: '總結評分', title: '小測驗',
-          body: '<p>最後一段沒有任何提示。正確率達 70% 就能拿到 1 顆星，並解鎖下一課。</p>',
+          type: 'explain', kicker: '總結評分', title: '總結測驗',
+          body: '<p>最後一段沒有任何提示。正確率達 70% 就能解鎖下一課；這一課的星等會綜合引導練習、曲目和這個測驗的表現。</p>',
         },
         () => ({
           type: 'find', kicker: '測驗 1：找音', instruction: '任何八度都可以，沒有提示。',

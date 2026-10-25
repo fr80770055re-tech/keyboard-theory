@@ -58,6 +58,7 @@ function setKeyboardVisible(on) {
 // In a lesson the keyboard is the stage: taller keys, a cue lane above them.
 function setLessonMode(on) {
   document.body.classList.toggle('in-lesson', on);
+  document.body.classList.remove('result-mode');
 }
 
 // ---------- MIDI status & calibration prompts ----------
@@ -439,7 +440,8 @@ $('#set-reset').onclick = () => {
   dlg.close();
   if (runner) runner.exit(); else showHome();
 };
-// Keep hands near the keys: Enter / Space = the stage's main button, R = listen again.
+// Keep hands near the keys: Enter / Space = the stage's main button, L = listen again.
+// L is deliberately outside the computer-keyboard note map, so it never plays a note.
 window.addEventListener('keydown', (e) => {
   if (!runner || dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
@@ -449,7 +451,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
     const primary = stage.querySelector('.btn-primary');
     if (primary) { e.preventDefault(); primary.click(); }
-  } else if (e.key.toLowerCase() === 'r') {
+  } else if (e.key.toLowerCase() === 'l' && !(e.key.toLowerCase() in QWERTY)) {
     const replay = stage.querySelector('[data-act="replay"], [data-act="demo"]');
     if (replay) { e.preventDefault(); replay.click(); }
   }

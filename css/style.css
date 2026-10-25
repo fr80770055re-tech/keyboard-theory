@@ -379,6 +379,7 @@ body.kb-off .kb-wrap { display: none; }
 body.in-lesson .view { display: flex; flex-direction: column; padding-bottom: 12px; }
 body.in-lesson .stage { margin-top: auto; background: transparent; border: 0; border-radius: 0; padding: 12px 0 0; min-height: 0; }
 body.in-lesson .kb-wrap { padding-top: 4px; }
+body.in-lesson.result-mode .kb-wrap { display: none; }
 /* Keys take what the lesson content leaves, so the score never hides behind them. */
 body.in-lesson .kb-keys { height: clamp(120px, min(30vh, 100dvh - 440px), 280px); }
 body.in-lesson .kb-lane { height: 58px; }
