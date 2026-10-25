@@ -4,21 +4,22 @@ import { DIM_EAR, PASSING } from './concepts.js';
 
 const DIM7 = [CH.Bdim7, CH.Csdim7, CH.Dsdim7, CH.Fsdim7, CH.Gsdim7];
 const RESOLVE = [as(CH.Bdim7, 'vii°7'), as(CH.C, 'I'), as(CH.Gsdim7, 'vii°7/vi'), as(CH.Am, 'vi')];
-const IV_PASS = [as(CH.F, 'IV'), as(CH.Fsdim7, '♯iv°7'), over(CH.C, 'C/G', 'I⁶₄', [N.G3, N.C4, N.E4]), as(CH.G7, 'V7'), as(CH.C, 'I')];
+const IV_PASS = [as(CH.F, 'IV'), as(CH.Fsdim7, '♯iv°7'), over(CH.C, 'C/G', 'I⁶₄', [N.G3, N.C4, N.E4], '1-3'), as(CH.G7, 'V7'), as(CH.C, 'I')];
 
 // 爬升的低音：左手 C、C♯、D、D♯、E、F、F♯、G 一路半音往上，
-// 每個「黑鍵」上都是一個經過減七和弦。右手幾乎不動。
+// 每個「黑鍵」上都是一個經過減七和弦。右手幾乎不動：拇指守在 G 或 A，
+// 換和弦多半只動一根手指。
 const RISE = [
-  over(CH.C, 'C', 'I', [N.C3, N.G3, N.C4, N.E4]),
-  over(CH.Csdim7, 'C♯°7', '♯i°7', [N.Db3, N.G3, N.Bb3, N.E4]),
-  over(CH.Dm7, 'Dm7', 'ii7', [N.D3, N.A3, N.C4, N.F4]),
-  over(CH.Dsdim7, 'D♯°7', '♯ii°7', [N.Eb3, N.A3, N.C4, N.Gb4]),
-  over(CH.C, 'C/E', 'I⁶', [N.E3, N.G3, N.C4, N.G4]),
-  over(CH.F, 'F', 'IV', [N.F3, N.A3, N.C4, N.F4]),
-  over(CH.Fsdim7, 'F♯°7', '♯iv°7', [N.Gb3, N.A3, N.C4, N.Eb4]),
-  over(CH.C, 'C/G', 'I⁶₄', [N.G3, N.C4, N.E4, N.G4]),
-  over(CH.G7, 'G7', 'V7', [N.G3, N.B3, N.D4, N.F4]),
-  over(CH.C, 'C', 'I', [N.C3, N.G3, N.C4, N.E4]),
+  over(CH.C, 'C', 'I', [N.C3, N.G3, N.C4, N.E4], '1-3-5'),
+  over(CH.Csdim7, 'C♯°7', '♯i°7', [N.Db3, N.G3, N.Bb3, N.E4], '1-2-5'),
+  over(CH.Dm7, 'Dm7', 'ii7', [N.D3, N.A3, N.C4, N.F4], '1-2-5'),
+  over(CH.Dsdim7, 'D♯°7', '♯ii°7', [N.Eb3, N.A3, N.C4, N.Gb4], '1-2-5'),
+  over(CH.C, 'C/E', 'I⁶', [N.E3, N.G3, N.C4, N.G4], '1-2-5'),
+  over(CH.F, 'F', 'IV', [N.F3, N.A3, N.C4, N.F4], '1-2-5'),
+  over(CH.Fsdim7, 'F♯°7', '♯iv°7', [N.Gb3, N.A3, N.C4, N.Eb4], '1-2-4'),
+  over(CH.C, 'C/G', 'I⁶₄', [N.G3, N.C4, N.E4, N.G4], '1-3-5'),
+  over(CH.G7, 'G7', 'V7', [N.G3, N.B3, N.D4, N.F4], '1-3-5'),
+  over(CH.C, 'C', 'I', [N.C3, N.G3, N.C4, N.E4], '1-3-5'),
 ];
 
 export default {
@@ -82,7 +83,7 @@ export default {
       },
       steps: [
         explain('實際曲目', '爬升的低音', `<p>C → C♯°7 → Dm7 → D♯°7 → C/E → F → F♯°7 → C/G → G7 → C。</p>
-          <p>左手彈最低的音：C、C♯、D、D♯、E、F、F♯、G，一步一個鍵往上。右手在中央 C 附近，每次只動一兩根手指。</p>`,
+          <p>左手 5 指彈最低的音：C、C♯、D、D♯、E、F、F♯、G，一步一個鍵往上。右手在中央 C 附近，拇指大多守在 G 或 A，每次只動一兩根手指（例如 Dm7 → D♯°7 只有 5 指從 F 移到 F♯）。</p>`,
         { demo: play(RISE, 2), bpm: 88 }),
         { type: 'chords', progression: true, kicker: '第 1 遍：有提示', title: '爬升的低音', hint: 'show', concept: 'passing-dim', chords: RISE },
         { type: 'chords', progression: true, kicker: '第 2 遍：不看提示', title: '爬升的低音', hint: 'none', concept: 'passing-dim', chords: RISE },

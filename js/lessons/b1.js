@@ -84,7 +84,7 @@ export default {
           demo: [C4],
         },
         {
-          type: 'find', kicker: '動手找', targets: [C4], match: 'exact', hint: 'none',
+          type: 'find', finger: fingerOf, kicker: '動手找', targets: [C4], match: 'exact', hint: 'none',
           promptFor: () => '彈 <span class="big">中央 C</span>',
           instruction: '要找的是中間那一個，不是其他八度的 C。', concept: () => 'middle-c',
         },
@@ -112,15 +112,15 @@ export default {
       kind: 'practice', minutes: 15, graded: true,
       steps: [
         () => ({
-          type: 'find', kicker: '練習 1：有提示', instruction: '任何一個八度都算對，亮起的鍵是建議位置。',
+          type: 'find', finger: fingerOf, kicker: '練習 1：有提示', instruction: '任何一個八度都算對，亮起的鍵是建議位置。',
           targets: shuffleDraw(CDE_POOL, 6), hint: 'show', concept: conceptOf,
         }),
         () => ({
-          type: 'find', kicker: '練習 2：提示變慢', instruction: '4 秒後才會出現提示，先試著自己找。',
+          type: 'find', finger: fingerOf, kicker: '練習 2：提示變慢', instruction: '4 秒後才會出現提示，先試著自己找。',
           targets: shuffleDraw(CDE_POOL, 8), hint: 'delay', concept: conceptOf,
         }),
         () => ({
-          type: 'listen', kicker: '練習 3：聽→彈', items: shuffleDraw([C4, D4, E4], 6),
+          type: 'listen', finger: fingerOf, kicker: '練習 3：聽→彈', items: shuffleDraw([C4, D4, E4], 6),
           candidates: [C4, D4, E4], instruction: '答案在中央 C、D、E 之中（淡藍框）。先聽，再在鍵盤上找。', concept: 'ear-CDE',
         }),
         {
@@ -170,11 +170,11 @@ export default {
           body: '<p>最後一段沒有任何提示。正確率達 70% 就能解鎖下一課；這一課的星等會綜合引導練習、曲目和這個測驗的表現。</p>',
         },
         () => ({
-          type: 'find', kicker: '測驗 1：找音', instruction: '任何八度都可以，沒有提示。',
+          type: 'find', finger: fingerOf, kicker: '測驗 1：找音', instruction: '任何八度都可以，沒有提示。',
           targets: shuffleDraw(CDE_POOL, 6), hint: 'none', concept: conceptOf,
         }),
         () => ({
-          type: 'listen', kicker: '測驗 2：聽→彈', items: shuffleDraw([C4, D4, E4], 4),
+          type: 'listen', finger: fingerOf, kicker: '測驗 2：聽→彈', items: shuffleDraw([C4, D4, E4], 4),
           candidates: [C4, D4, E4], instruction: '答案在中央 C、D、E 之中。', concept: 'ear-CDE',
         }),
       ],

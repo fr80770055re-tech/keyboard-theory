@@ -1,5 +1,5 @@
 // 入門 第 4 課：認識五線譜
-import { N, explain, shuffleDraw } from './kit.js';
+import { N, explain, posFinger, shuffleDraw } from './kit.js';
 
 const TREBLE = [N.C4, N.D4, N.E4, N.F4, N.G4, N.A4, N.B4, N.C5];
 const BASS = [N.C3, N.D3, N.E3, N.F3, N.G3, N.A3, N.B3];
@@ -47,9 +47,9 @@ export default {
     {
       kind: 'practice', minutes: 16, graded: true,
       steps: [
-        () => ({ type: 'find', staff: true, clef: 'treble', match: 'exact', kicker: '練習 1：讀高音譜號（有提示）', instruction: '看譜上的音，在鍵盤上找出來。這次琴鍵會亮。', targets: shuffleDraw(TREBLE.slice(0, 5), 6), hint: 'show', concept: conceptOf }),
-        () => ({ type: 'find', staff: true, clef: 'treble', match: 'exact', kicker: '練習 2：提示變慢', instruction: '4 秒後才亮。先試著自己讀。', targets: shuffleDraw(TREBLE, 8), hint: 'delay', concept: conceptOf }),
-        () => ({ type: 'find', staff: true, clef: 'bass', match: 'exact', kicker: '練習 3：讀低音譜號', instruction: '左手的音域：低八度的 C 到 B。', targets: shuffleDraw(BASS, 6), hint: 'delay', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, staff: true, clef: 'treble', match: 'exact', kicker: '練習 1：讀高音譜號（有提示）', instruction: '看譜上的音，在鍵盤上找出來。這次琴鍵會亮，上面的數字是建議指法：右手 C 到 G 用 C 位置（1–5），A、B、C 換到 G 位置（2、3、4）。', targets: shuffleDraw(TREBLE.slice(0, 5), 6), hint: 'show', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, staff: true, clef: 'treble', match: 'exact', kicker: '練習 2：提示變慢', instruction: '4 秒後才亮。先試著自己讀。', targets: shuffleDraw(TREBLE, 8), hint: 'delay', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, staff: true, clef: 'bass', match: 'exact', kicker: '練習 3：讀低音譜號', instruction: '左手的音域：低八度的 C 到 B。左手 C 到 G 用 C 位置（5–1）；A、B 把手移到中央 C 位置（3、2 指）。', targets: shuffleDraw(BASS, 6), hint: 'delay', concept: conceptOf }),
         { type: 'melody', staff: true, clef: 'treble', hideNames: true, kicker: '練習 4：看譜彈旋律', title: '只看譜', hint: 'show', concept: 'read-treble', instruction: '這次沒有音名，只有五線譜和琴鍵提示。', notes: seq([N.C4, N.E4, N.D4, N.F4, N.E4, N.G4, N.E4, N.C4]) },
       ],
     },
@@ -72,8 +72,8 @@ export default {
       kind: 'summary', minutes: 5, graded: true,
       steps: [
         explain('總結評分', '總結測驗', '<p>只看譜，沒有任何提示。正確率達 70% 就能解鎖下一課。</p>'),
-        () => ({ type: 'find', staff: true, clef: 'treble', match: 'exact', kicker: '測驗 1：高音譜號', targets: shuffleDraw(TREBLE, 5), hint: 'none', concept: conceptOf }),
-        () => ({ type: 'find', staff: true, clef: 'bass', match: 'exact', kicker: '測驗 2：低音譜號', targets: shuffleDraw(BASS, 4), hint: 'none', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, staff: true, clef: 'treble', match: 'exact', kicker: '測驗 1：高音譜號', targets: shuffleDraw(TREBLE, 5), hint: 'none', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, staff: true, clef: 'bass', match: 'exact', kicker: '測驗 2：低音譜號', targets: shuffleDraw(BASS, 4), hint: 'none', concept: conceptOf }),
       ],
     },
   ],

@@ -1,12 +1,12 @@
 // Concept bank: every graded item belongs to a concept. Spaced review pulls due
 // concepts into the next warm-up (and the daily review) using each concept's
 // review() steps.
-import { CH, INV, N, SCALE, SHELL, as, play, rhUp, shuffleDraw } from './kit.js';
+import { CH, HANON, INV, N, SCALE, SHELL, as, play, posFinger, rhUp, shuffleDraw } from './kit.js';
 
 export { shuffleDraw };
 
 const findNote = (pitchClass, label) => () => ({
-  type: 'find',
+  type: 'find', finger: posFinger,
   kicker: `複習：找 ${label}`,
   instruction: '任何一個八度都可以。',
   targets: shuffleDraw([48, 60, 72].map((c) => c + pitchClass).filter((n) => n <= 72), 3),
@@ -57,6 +57,9 @@ export const INTERVALS = [
   { root: N.C4, name: '純八度', t: N.C5 },
 ];
 const LETTER = ['C', '', 'D', '', 'E', 'F', '', 'G', '', 'A', '', 'B'];
+// Thumb on the lower note; the upper note takes the finger that reaches it in
+// one hand position (2nd → 2, 3rd → 3, 4th/tritone → 4, 5th and wider → 5, stretching).
+export const intervalFinger = (semis) => (semis <= 2 ? '2' : semis <= 4 ? '3' : semis <= 6 ? '4' : '5');
 
 // k questions with different answers (a find step looks its prompt up by answer).
 export function intervalFind({ kicker, title, hint, k = 5, names = null }) {
@@ -69,7 +72,8 @@ export function intervalFind({ kicker, title, hint, k = 5, names = null }) {
   const byTarget = new Map(picks.map((q) => [q.t, q]));
   return {
     type: 'find', kicker, title, hint,
-    instruction: '從這個音往上數；答案彈在哪個八度都可以。',
+    instruction: '拇指放在出發的音上，往上數；琴鍵上的數字是建議用哪一指。答案彈在哪個八度都可以。',
+    finger: (t) => intervalFinger(t - byTarget.get(t).root),
     targets: picks.map((q) => q.t),
     promptFor: (t) => `從 <b>${LETTER[byTarget.get(t).root % 12]}</b> 往上一個 <span class="big">${byTarget.get(t).name}</span>`,
     concept: () => 'interval-build',
@@ -172,21 +176,21 @@ export const CONCEPTS = {
   'middle-c': {
     name: '中央 C',
     review: () => [{
-      type: 'find', kicker: '複習：中央 C', targets: [60], match: 'exact', hint: 'delay',
+      type: 'find', finger: posFinger, kicker: '複習：中央 C', targets: [60], match: 'exact', hint: 'delay',
       promptFor: () => '彈 <span class="big">中央 C</span>', concept: () => 'middle-c',
     }],
   },
   'ear-CDE': {
     name: '聽辨 C D E',
     review: () => [() => ({
-      type: 'listen', kicker: '複習：聽→彈', items: shuffleDraw([60, 62, 64], 3),
+      type: 'listen', finger: posFinger, kicker: '複習：聽→彈', items: shuffleDraw([60, 62, 64], 3),
       candidates: [60, 62, 64], instruction: '答案在中央 C、D、E 之中（淡藍框）。', concept: 'ear-CDE',
     })],
   },
   'ear-CG': {
     name: '聽辨 C 到 G',
     review: () => [() => ({
-      type: 'listen', kicker: '複習：聽→彈', items: shuffleDraw([60, 62, 64, 65, 67], 3),
+      type: 'listen', finger: posFinger, kicker: '複習：聽→彈', items: shuffleDraw([60, 62, 64, 65, 67], 3),
       candidates: [60, 62, 64, 65, 67], instruction: '答案在中央 C 到 G 之間（淡藍框）。', concept: 'ear-CG',
     })],
   },
@@ -216,11 +220,11 @@ export const CONCEPTS = {
   },
   'read-treble': {
     name: '讀高音譜號',
-    review: () => [() => ({ type: 'find', staff: true, clef: 'treble', match: 'exact', kicker: '複習：讀譜', targets: shuffleDraw([60, 62, 64, 65, 67, 69, 71, 72], 4), hint: 'delay', concept: () => 'read-treble' })],
+    review: () => [() => ({ type: 'find', finger: posFinger, staff: true, clef: 'treble', match: 'exact', kicker: '複習：讀譜', targets: shuffleDraw([60, 62, 64, 65, 67, 69, 71, 72], 4), hint: 'delay', concept: () => 'read-treble' })],
   },
   'read-bass': {
     name: '讀低音譜號',
-    review: () => [() => ({ type: 'find', staff: true, clef: 'bass', match: 'exact', kicker: '複習：讀低音譜號', targets: shuffleDraw([48, 50, 52, 53, 55, 57, 59], 4), hint: 'delay', concept: () => 'read-bass' })],
+    review: () => [() => ({ type: 'find', finger: posFinger, staff: true, clef: 'bass', match: 'exact', kicker: '複習：讀低音譜號', targets: shuffleDraw([48, 50, 52, 53, 55, 57, 59], 4), hint: 'delay', concept: () => 'read-bass' })],
   },
   'accomp-patterns': {
     name: '伴奏型指法',
@@ -295,6 +299,14 @@ export const CONCEPTS = {
     review: () => [{ type: 'chords', progression: true, kicker: '複習：延伸和弦', title: 'Dm9 → G13 → Cmaj9', hint: 'delay', concept: 'ext-chords', chords: EXT_251 }],
   },
   'ext-ear': { name: '聽出延伸音', review: () => [pickOne('ext-ear', '複習：聽出延伸音', EXT_EAR)] },
+  hanon: {
+    name: '哈農指法',
+    review: () => [melody('複習：哈農', '第 1 號 ↑（前兩組）', HANON.rh1Up.slice(0, 16).map((x) => [x.n, x.f]), 'hanon', '1-2-3-4-5-4-3-2，彈完一組整隻手往右移一個白鍵。')],
+  },
+  'hanon-even': {
+    name: '哈農：平均的八分音符',
+    review: () => [{ type: 'rhythm', kicker: '複習：哈農', title: '第 1 號（八分音符）', pattern: HANON.rh1Up.slice(0, 16).map(({ n }) => ({ n, d: 0.5 })), bpm: 60, clef: 'treble', concept: 'hanon-even' }],
+  },
 };
 
 export function reviewSteps(id) {

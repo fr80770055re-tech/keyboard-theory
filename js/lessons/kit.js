@@ -31,8 +31,11 @@ function chord(sym, tones, voicing, extra = {}) {
 export const as = (c, roman, extra = {}) => ({ ...c, roman, ...extra });
 
 // Shell voicing: root (left hand, low) + 3rd and 7th. The 5th is optional.
+// Left-hand 5 on the root; the right hand spans its two notes with 1-3 (up to a
+// major 3rd), 1-4 (a 4th or tritone) or 1-5 (a 5th or more).
+const rhPair = (a, b) => (b - a <= 4 ? '3' : b - a <= 6 ? '4' : '5');
 export const shell = (c, voicing, roman) => ({
-  ...c, roman, voicing, fingers: undefined, need: [c.pcs[0], c.pcs[1], c.pcs[3]],
+  ...c, roman, voicing, fingers: ['5', '1', rhPair(voicing[1], voicing[2])], need: [c.pcs[0], c.pcs[1], c.pcs[3]],
 });
 
 export const CH = {
@@ -87,7 +90,8 @@ export const CH = {
 };
 
 // The same chord over a given bass (left hand): `low` makes the bass the required lowest note.
-export const over = (c, sym, roman, voicing) => ({ ...c, sym, roman, voicing, fingers: undefined, low: voicing[0] % 12 });
+// rh: right-hand fingers for the notes above the bass; the bass is left-hand 5.
+export const over = (c, sym, roman, voicing, rh) => ({ ...c, sym, roman, voicing, fingers: rh ? ['5', ...rh.split('-')] : undefined, low: voicing[0] % 12 });
 
 // Guide-tone (shell) voicings: left-hand root + right-hand 3rd & 7th, moving by
 // the smallest steps. Note G7 and D♭7 share the same right hand (B and F).
@@ -110,7 +114,7 @@ export const INV = {
   C_G: inv(CH.C, 'C/G', [N.G3, N.C4, N.E4], ['1', '3', '5']),
   F: inv(CH.F, 'F', [N.F3, N.A3, N.C4], ['1', '3', '5']),
   F_A: inv(CH.F, 'F/A', [N.A3, N.C4, N.F4], ['1', '2', '5']),
-  F_C: inv(CH.F, 'F/C', [N.C4, N.F4, N.A4], ['1', '3', '5']),
+  F_C: inv(CH.F, 'F/C', [N.C4, N.F4, N.A4], ['1', '4', '5']), // as in 入門 6: from C–E–G, 1 and 5 stay
   G: inv(CH.G, 'G', [N.G3, N.B3, N.D4], ['1', '3', '5']),
   G_B: inv(CH.G, 'G/B', [N.B3, N.D4, N.G4], ['1', '2', '5']),
   G_D: inv(CH.G, 'G/D', [N.D4, N.G4, N.B4], ['1', '3', '5']),
@@ -137,6 +141,12 @@ export const rhUp = (s) => s.map((n, i) => ({ n, f: RH[i] }));
 export const rhDown = (s) => [...s].reverse().map((n, i) => ({ n, f: RH[7 - i] }));
 export const lhUp = (s) => s.map((n, i) => ({ n, f: LH[i] }));
 
+// Suggested finger for a single white key, by hand position: right hand in C
+// position (C–G = 1–5) and G position (A, B, C = 2, 3, 4); left hand in C
+// position (C–G = 5–1) and middle-C position (A, B = 3, 2).
+const POS = { 48: 5, 50: 4, 52: 3, 53: 2, 55: 1, 57: 3, 59: 2, 60: 1, 62: 2, 64: 3, 65: 4, 67: 5, 69: 2, 71: 3, 72: 4 };
+export const posFinger = (n) => (POS[n] ? String(POS[n]) : undefined);
+
 // Demo sequence for a list of chords (two beats each).
 export const play = (chords, d = 2) => chords.map((c) => ({ n: c.voicing, d }));
 
@@ -144,3 +154,24 @@ export const explain = (kicker, title, body, extra = {}) => ({ type: 'explain', 
 
 // Keyboard marks for showing a chord's voicing in an explanation.
 export const marks = (c, kind = 'hint') => c.voicing.map((n, k) => [n, kind, c.fingers?.[k] || c.tones[c.pcs.indexOf(n % 12)]]);
+
+// Hanon, The Virtuoso Pianist (1873, public domain), exercises 1 and 2 fitted to
+// 25 keys: each 8-note group moves one white key per group, three groups up and
+// three down, right hand from middle C, left hand an octave lower.
+const WHITE = [N.C3, N.D3, N.E3, N.F3, N.G3, N.A3, N.B3, N.C4, N.D4, N.E4, N.F4, N.G4, N.A4, N.B4, N.C5];
+const hanon = (starts, shape, fingers, end) => [
+  ...starts.flatMap((s) => shape.map((k, i) => ({ n: WHITE[s + k], f: fingers[i] }))),
+  ...(end ? [{ n: WHITE[end[0]], f: end[1], d: 2 }] : []),
+];
+const H1_UP = [0, 2, 3, 4, 5, 4, 3, 2];
+const H1_DOWN = H1_UP.map((k) => -k);
+const H2_UP = [0, 2, 5, 4, 3, 4, 3, 2];
+const H2_DOWN = H2_UP.map((k) => -k);
+export const HANON = {
+  rh1Up: hanon([7, 8, 9], H1_UP, [1, 2, 3, 4, 5, 4, 3, 2]),
+  rh1Down: hanon([14, 13, 12], H1_DOWN, [5, 4, 3, 2, 1, 2, 3, 4], [7, 1]),
+  lh1Up: hanon([0, 1, 2], H1_UP, [5, 4, 3, 2, 1, 2, 3, 4]),
+  lh1Down: hanon([7, 6, 5], H1_DOWN, [1, 2, 3, 4, 5, 4, 3, 2], [0, 5]),
+  rh2Up: hanon([7, 8, 9], H2_UP, [1, 2, 5, 4, 3, 4, 3, 2]),
+  rh2Down: hanon([14, 13, 12], H2_DOWN, [5, 4, 1, 2, 3, 2, 3, 4], [7, 1]),
+};

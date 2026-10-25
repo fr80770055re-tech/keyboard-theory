@@ -1,5 +1,5 @@
 // 入門 第 2 課：五指位置與運指基礎
-import { N, explain, shuffleDraw } from './kit.js';
+import { N, explain, posFinger, shuffleDraw } from './kit.js';
 
 const RH = { [N.C4]: 1, [N.D4]: 2, [N.E4]: 3, [N.F4]: 4, [N.G4]: 5 };
 const LH = { [N.C3]: 5, [N.D3]: 4, [N.E3]: 3, [N.F3]: 2, [N.G3]: 1 };
@@ -55,11 +55,11 @@ export default {
     {
       kind: 'practice', minutes: 15, graded: true,
       steps: [
-        () => ({ type: 'find', kicker: '練習 1：找 F 和 G', instruction: '任何八度都可以。', targets: shuffleDraw([N.F3, N.G3, N.F4, N.G4, N.C4, N.E4], 6), hint: 'delay', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, kicker: '練習 1：找 F 和 G', instruction: '任何八度都可以。', targets: shuffleDraw([N.F3, N.G3, N.F4, N.G4, N.C4, N.E4], 6), hint: 'delay', concept: conceptOf }),
         { type: 'melody', kicker: '練習 2：右手五指', title: '上行、下行', hint: 'show', concept: 'finger-five', instruction: '1-2-3-4-5-4-3-2-1，一指一鍵。', notes: rh(N.C4, N.D4, N.E4, N.F4, N.G4, N.F4, N.E4, N.D4, N.C4) },
         { type: 'melody', kicker: '練習 3：手指獨立', title: '三度跳進', hint: 'show', concept: 'finger-five', instruction: '1-3、2-4、3-5，再走回來。', notes: rh(N.C4, N.E4, N.D4, N.F4, N.E4, N.G4, N.F4, N.D4, N.E4, N.C4) },
         { type: 'melody', kicker: '練習 4：左手五指', title: '左手上行、下行', hint: 'show', concept: 'finger-lh', instruction: '左手小指放低八度的 C：5-4-3-2-1-2-3-4-5。', notes: lh(N.C3, N.D3, N.E3, N.F3, N.G3, N.F3, N.E3, N.D3, N.C3) },
-        () => ({ type: 'listen', kicker: '練習 5：聽→彈', items: shuffleDraw([N.C4, N.D4, N.E4, N.F4, N.G4], 5), candidates: [N.C4, N.D4, N.E4, N.F4, N.G4], instruction: '答案在右手 C 位置的五個音之中。', concept: 'ear-CG' }),
+        () => ({ type: 'listen', finger: posFinger, kicker: '練習 5：聽→彈', items: shuffleDraw([N.C4, N.D4, N.E4, N.F4, N.G4], 5), candidates: [N.C4, N.D4, N.E4, N.F4, N.G4], instruction: '答案在右手 C 位置的五個音之中。', concept: 'ear-CG' }),
       ],
     },
     {
@@ -83,7 +83,7 @@ export default {
       kind: 'summary', minutes: 5, graded: true,
       steps: [
         explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖下一課；這一課的星等會綜合引導練習、曲目和這個測驗的表現。</p>'),
-        () => ({ type: 'find', kicker: '測驗 1：找音', instruction: '任何八度都可以。', targets: shuffleDraw([N.F3, N.G3, N.F4, N.G4, N.D4, N.E4], 5), hint: 'none', concept: conceptOf }),
+        () => ({ type: 'find', finger: posFinger, kicker: '測驗 1：找音', instruction: '任何八度都可以。', targets: shuffleDraw([N.F3, N.G3, N.F4, N.G4, N.D4, N.E4], 5), hint: 'none', concept: conceptOf }),
         { type: 'melody', kicker: '測驗 2：運指', title: 'C E D F E G', hint: 'none', concept: 'finger-five', instruction: '右手 C 位置，看指號彈。', notes: rh(N.C4, N.E4, N.D4, N.F4, N.E4, N.G4, N.E4, N.C4) },
       ],
     },

@@ -69,7 +69,7 @@ export default {
     {
       kind: 'summary', minutes: 5, graded: true,
       steps: [
-        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖進階路線的和弦課程。</p>'),
+        explain('總結評分', '總結測驗', '<p>沒有提示。正確率達 70% 就能解鎖下一課：哈農手指練習。</p>'),
         () => ({ type: 'chords', kicker: '測驗 1：和弦', hint: 'none', concept: 'triad-CFG', chords: shuffleDraw([CH.C, CH.F, CH.G, CH.Am], 5) }),
         { type: 'chords', progression: true, kicker: '測驗 2：I–IV–V–I', title: 'I–IV–V–I', hint: 'none', concept: 'prog-145', chords: [I, IV, V, I] },
       ],

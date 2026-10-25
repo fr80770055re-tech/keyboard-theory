@@ -455,10 +455,12 @@ export class LessonRunner {
       if (step.staff) drawStaff(this.stage.querySelector('[data-el="staff"]'), [{ n: t, d: 4 }], { clef: step.clef, label: '譜上的一個音' }).catch(() => {});
       this.#announce(`第 ${i + 1} 題，共 ${targets.length} 題。${step.staff ? `譜上的音是 ${fullName(t)}` : promptText}。${i === 0 ? step.instruction || '' : ''}`);
       const matches = (n) => (exact ? n === t : pc(n) === pc(t));
-      // The lit key carries its letter so the learner reads the name, not just the light.
+      // The lit key carries its finger number when the step suggests one (else its
+      // letter); the label above the key always names the note.
       const showHint = () => {
-        this.kb.mark(t, 'hint', step.finger?.(t) || letter(t));
-        this.kb.cue([{ n: t, label: letter(t) }]);
+        const f = step.finger?.(t);
+        this.kb.mark(t, 'hint', f || letter(t));
+        this.kb.cue([{ n: t, label: letter(t), sub: f ? `${f} 指` : '' }]);
       };
       if (step.hint === 'show') showHint();
       const hintTimer = step.hint === 'delay' ? setTimeout(showHint, 4000) : null;
@@ -551,7 +553,7 @@ export class LessonRunner {
         <div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>
         <p class="feedback"></p>`;
       for (const c of step.candidates || []) this.kb.mark(c, 'soft');
-      if (root !== null) this.kb.mark(root, 'hint', letter(root));
+      if (root !== null) this.kb.mark(root, 'hint', step.finger ? '1' : letter(root));
       this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。${ask}。${i === 0 ? step.instruction || '' : ''}按 L 可以再聽一次。`);
       const play = () => this.#demo(root === null ? [t] : [root, { n: t, d: 1.5 }], { bpm: 70 });
       this.stage.querySelector('[data-act="replay"]').onclick = play;
@@ -568,7 +570,7 @@ export class LessonRunner {
         tries++;
         this.kb.flash(n, false);
         if (tries >= 2) {
-          this.kb.mark(t, 'hint', letter(t));
+          this.kb.mark(t, 'hint', step.finger?.(t, root) || letter(t));
           this.#feedback(octaveMiss(n, t) ? `${octaveMiss(n, t)}，已標示出來` : `你彈的是 ${fullName(n)}。答案是 ${fullName(t)}，已標示出來`, 'bad');
         } else {
           this.#feedback(octaveMiss(n, t) ? `音名對了，但${octaveMiss(n, t).replace(/^這個 S+ /, '')}。再聽一次` : `不是 ${fullName(n)}。比較一下兩個音的高低，再聽一次`, 'bad');

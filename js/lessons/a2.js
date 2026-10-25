@@ -9,13 +9,19 @@ const timed = (notes) => notes.map(({ n, d }) => ({ n, d: d ?? 1 }));
 
 // 〈綠袖子〉（Greensleeves，英國傳統曲，公版），A 小調，移低八度放進 25 鍵。
 // 同一首歌裡有 G 也有 G♯、還有 F♯：自然、和聲、旋律小調全都出現。
+// 指法：A 拇指起手（A–F♯ 一個位置）；D 之後拇指穿到 B，2 指跨過拇指彈 G，
+// 手換到 F♯–C 的位置。樂句之間（E → A）整隻手移回 A。
+const GS_FINGERS = [
+  1, 2, 3, 4, 5, 4, 3, 1, 2, 3, 4, 5, 3, 3, 2, 3, 4, 2, 1,
+  1, 2, 3, 4, 5, 4, 3, 1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3,
+];
 const GREENSLEEVES = [
   [N.A3, 1], [N.C4, 2], [N.D4, 1], [N.E4, 1.5], [N.Gb4, 0.5], [N.E4, 1], [N.D4, 2], [N.B3, 1],
   [N.G3, 1.5], [N.A3, 0.5], [N.B3, 1], [N.C4, 2], [N.A3, 1], [N.A3, 1.5], [N.Ab3, 0.5], [N.A3, 1],
   [N.B3, 2], [N.Ab3, 1], [N.E3, 2], [N.A3, 1], [N.C4, 2], [N.D4, 1], [N.E4, 1.5], [N.Gb4, 0.5], [N.E4, 1],
   [N.D4, 2], [N.B3, 1], [N.G3, 1.5], [N.A3, 0.5], [N.B3, 1], [N.C4, 1.5], [N.B3, 0.5], [N.A3, 1],
   [N.Ab3, 1.5], [N.Gb3, 0.5], [N.Ab3, 1], [N.A3, 3],
-].map(([n, d]) => ({ n, d }));
+].map(([n, d], i) => ({ n, d, f: GS_FINGERS[i] }));
 
 export default {
   id: 'a2',
@@ -82,7 +88,7 @@ export default {
       },
       steps: [
         explain('實際曲目', '〈綠袖子〉（Greensleeves）', `<p>A 小調，三拍子。開頭 A→C 是小三度；樂句結尾的 <b>G♯→A</b> 是和聲小調的導音回家，中間的 <b>F♯</b> 則來自旋律小調。</p>
-          <p>這首不標指法：試著自己安排。原則是一指一鍵，換位置時用拇指穿過去或 3 指跨過來。</p>`,
+          <p>指法已標在琴鍵和音符上：拇指放 A 起手；彈完 D 之後<b>拇指穿到 B</b>，<b>2 指跨過拇指</b>彈 G，手就換到 F♯–C 的位置。第一句結尾的 E 用拇指，接著整隻手移回 A 開始第二句。</p>`,
         { demo: timed(GREENSLEEVES), bpm: 104 }),
         { type: 'melody', kicker: '第 1 遍：有提示', title: '綠袖子', hint: 'show', concept: 'minor-scales', notes: GREENSLEEVES, bpm: 104 },
         { type: 'melody', kicker: '第 2 遍：不看提示', title: '綠袖子', hint: 'none', concept: 'minor-scales', notes: GREENSLEEVES, bpm: 104 },

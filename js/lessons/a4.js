@@ -11,16 +11,17 @@ const JUMPY = [as(INV.C, 'I'), as(INV.F, 'IV'), as(INV.G, 'V'), as(INV.C, 'I')];
 const CLOSE = [as(INV.C, 'I'), as(CH.F_C, 'IV', { low: 0, sym: 'F/C' }), as(INV.G_B, 'V'), as(INV.C, 'I')];
 
 // 帕海貝爾〈卡農〉的和弦進行（公版）：低音一步步往下走，右手幾乎不跳。
+// 左手 5 指彈低音；右手原位與第二轉位型 1-3-5，第一轉位型（上面是四度）1-2-5。
 const CANON = [
-  over(CH.C, 'C', 'I', [N.C4, N.E4, N.G4, N.C5]),
-  over(CH.G, 'G/B', 'V⁶', [N.B3, N.D4, N.G4, N.B4]),
-  over(CH.Am, 'Am', 'vi', [N.A3, N.C4, N.E4, N.A4]),
-  over(CH.Em, 'Em/G', 'iii⁶', [N.G3, N.B3, N.E4, N.G4]),
-  over(CH.F, 'F', 'IV', [N.F3, N.A3, N.C4, N.F4]),
-  over(CH.C, 'C/E', 'I⁶', [N.E3, N.G3, N.C4, N.E4]),
-  over(CH.Dm, 'Dm', 'ii', [N.D3, N.A3, N.D4, N.F4]),
-  over(CH.G7, 'G7', 'V7', [N.G3, N.B3, N.D4, N.F4]),
-  over(CH.C, 'C', 'I', [N.C3, N.C4, N.E4, N.G4]),
+  over(CH.C, 'C', 'I', [N.C4, N.E4, N.G4, N.C5], '1-2-5'),
+  over(CH.G, 'G/B', 'V⁶', [N.B3, N.D4, N.G4, N.B4], '1-3-5'),
+  over(CH.Am, 'Am', 'vi', [N.A3, N.C4, N.E4, N.A4], '1-2-5'),
+  over(CH.Em, 'Em/G', 'iii⁶', [N.G3, N.B3, N.E4, N.G4], '1-3-5'),
+  over(CH.F, 'F', 'IV', [N.F3, N.A3, N.C4, N.F4], '1-2-5'),
+  over(CH.C, 'C/E', 'I⁶', [N.E3, N.G3, N.C4, N.E4], '1-3-5'),
+  over(CH.Dm, 'Dm', 'ii', [N.D3, N.A3, N.D4, N.F4], '1-3-5'),
+  over(CH.G7, 'G7', 'V7', [N.G3, N.B3, N.D4, N.F4], '1-3-5'),
+  over(CH.C, 'C', 'I', [N.C3, N.C4, N.E4, N.G4], '1-3-5'),
 ];
 
 export default {
@@ -51,7 +52,8 @@ export default {
           <p>右手手型：</p>
           <ul><li>原位 C–E–G：<b>1-3-5</b>，兩個三度疊起來。</li>
           <li>第一轉位 E–G–C：<b>1-2-5</b>，上面是四度，所以用 2 指。</li>
-          <li>第二轉位 G–C–E：<b>1-3-5</b>，下面是四度，3 指往外一點。</li></ul>`,
+          <li>第二轉位 G–C–E：<b>1-3-5</b>，下面是四度，3 指往外一點。</li></ul>
+          <p class="muted">例外：從 C–E–G 換到 F/C（C–F–A）時，照入門第 6 課用 <b>1-4-5</b>：拇指和小指不動，只有 3 指換成 4 指按 F。</p>`,
         { keys: marks(INV.C_E), demo: play([INV.C_E, INV.C_G]) }),
         { type: 'chords', kicker: '動手彈', title: 'C 的三種排法', hint: 'show', concept: 'inversions', instruction: '注意最低音：C、E、G 輪流在最下面。', chords: [named(INV.C, 0), named(INV.C_E, 1), named(INV.C_G, 2)] },
         explain('新概念 3/6', '為什麼要轉位：手不用跳', `<p>全部用原位彈 C → F → G → C，整隻手要一直跳。換成 <b>C → F/C → G/B → C</b>，手幾乎不動：</p>
@@ -79,7 +81,7 @@ export default {
         { type: 'chords', progression: true, kicker: '練習 3：平順的 I–vi–IV–V', title: 'C → Am/C → F/C → G/B → C', hint: 'show', concept: 'voice-leading', instruction: '拇指一直守在 C 附近，只有需要動的手指才動。', chords: SMOOTH },
         () => ({ type: 'choice', kicker: '練習 4：聽出轉位', concept: 'inversion-ear', items: shuffleDraw(INVERSION_EAR, 3) }),
         { type: 'chords', progression: true, kicker: '練習 5：共同音', title: 'C → F/C → G/B → C', hint: 'delay', concept: 'voice-leading', instruction: '先找出兩個和弦共有的音，按住不動。', chords: CLOSE },
-        { type: 'chords', progression: true, kicker: '練習 6：低音線', title: '卡農前半：C → G/B → Am → Em/G', hint: 'show', concept: 'voice-leading', instruction: '左手低音 C、B、A、G 一步步往下；右手跟著小幅移動。', chords: CANON.slice(0, 4) },
+        { type: 'chords', progression: true, kicker: '練習 6：低音線', title: '卡農前半：C → G/B → Am → Em/G', hint: 'show', concept: 'voice-leading', instruction: '左手 5 指彈低音 C、B、A、G，一步步往下；右手照琴鍵上的指號小幅移動。', chords: CANON.slice(0, 4) },
       ],
     },
     {
@@ -92,7 +94,7 @@ export default {
       },
       steps: [
         explain('實際曲目', '帕海貝爾〈卡農〉的和弦進行', `<p>C → G/B → Am → Em/G → F → C/E → Dm → G7 → C。低音 C、B、A、G、F、E、D，最後 G 回到 C。</p>
-          <p>左手彈最低的那個音，右手彈上面三個。注意 Dm 到 G7：D 和 F 兩個音都不用動。</p>`,
+          <p>左手 5 指彈最低的那個音，右手彈上面三個：第一轉位型用 1-2-5，其他用 1-3-5。注意 Dm 到 G7：D 和 F 兩個音都不用動。</p>`,
         { demo: play(CANON, 3), bpm: 72 }),
         { type: 'chords', progression: true, kicker: '第 1 遍：有提示', title: '卡農', hint: 'show', concept: 'voice-leading', chords: CANON },
         { type: 'chords', progression: true, kicker: '第 2 遍：不看提示', title: '卡農', hint: 'none', concept: 'voice-leading', chords: CANON },

@@ -1,6 +1,8 @@
 // 進階 第 1 課：音程：從聽到彈
 import { N, explain, shuffleDraw } from './kit.js';
-import { INTERVAL_EAR, INTERVAL_HARM, INTERVAL_LISTEN, intervalFind } from './concepts.js';
+import { INTERVAL_EAR, INTERVAL_HARM, INTERVAL_LISTEN, intervalFind, intervalFinger } from './concepts.js';
+
+const listenFinger = (t, root = N.C4) => intervalFinger(t - root);
 
 const seq = (triples) => triples.map(([n, f, d]) => ({ n, f, ...(d ? { d } : {}) }));
 const fig = (pairs, label) => ({ notes: pairs.flatMap(([a, b]) => [{ n: a, d: 1 }, { n: b, d: 1 }]), clef: 'treble', label });
@@ -70,7 +72,7 @@ export default {
           <p class="muted">也可以用你自己熟悉的歌，記得住最重要。</p>`),
         explain('新概念 5/5', '聽→彈：從 C 出發', `<p>接下來會先響一下中央 C，再響第二個音。先在心裡唱出那首歌，再判斷是幾度、往上找。</p>
           <p class="muted">彈錯也沒關係，系統會再播一次讓你比較高低。</p>`),
-        () => ({ type: 'listen', kicker: '試試看', concept: 'interval-ear', instruction: '中央 C 已標示出來。', items: shuffleDraw(INTERVAL_LISTEN, 3) }),
+        () => ({ type: 'listen', kicker: '試試看', concept: 'interval-ear', finger: listenFinger, instruction: '右手拇指放在中央 C（標示 1 的鍵）。', items: shuffleDraw(INTERVAL_LISTEN, 3) }),
       ],
     },
     {
@@ -78,7 +80,7 @@ export default {
       steps: [
         () => intervalFind({ kicker: '練習 1：二度與三度', hint: 'show', k: 4, names: ['小二度', '大二度', '小三度', '大三度'] }),
         () => intervalFind({ kicker: '練習 2：所有音程，提示變慢', hint: 'delay', k: 5 }),
-        () => ({ type: 'listen', kicker: '練習 3：聽→彈', concept: 'interval-ear', instruction: '中央 C 已標示出來，第二個音都在它上面。', items: shuffleDraw(INTERVAL_LISTEN, 4) }),
+        () => ({ type: 'listen', kicker: '練習 3：聽→彈', concept: 'interval-ear', finger: listenFinger, instruction: '右手拇指放在中央 C，第二個音都在它上面；八度要把手張開用 5 指。', items: shuffleDraw(INTERVAL_LISTEN, 4) }),
         () => ({ type: 'choice', kicker: '練習 4：先後響的音程', concept: 'interval-ear', items: shuffleDraw(INTERVAL_EAR, 4) }),
         () => ({ type: 'choice', kicker: '練習 5：同時響的音程', concept: 'interval-ear', items: shuffleDraw(INTERVAL_HARM, 3) }),
       ],
