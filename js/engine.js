@@ -6,6 +6,7 @@ import { fullName, letter, noteName, notesOfClass, octaveMiss, pc, sci, setNotat
 import { wait } from './audio.js';
 import { icon, star } from './icons.js';
 import { drawStaff, markStaff } from './staff.js';
+import { drawFretboard, fretName, midiAt } from './fretboard.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 
 export const SEGMENT_NAMES = {
@@ -910,6 +911,79 @@ export class LessonRunner {
     return { total: chords.length, right: results.filter(Boolean).length, misses };
   }
 
+  // Guitar fretboard: tap the position(s) asked for. Items: { prompt, targets:
+  // [[string, fret], …], all (find every target), marks (shown first), explain }.
+  // One-target items take any of the listed positions; `all` items need each one.
+  async step_fretboard(step) {
+    const items = step.items;
+    const results = [];
+    const misses = [];
+    for (let i = 0; i < items.length; i++) {
+      const q = items[i];
+      this.stage.innerHTML = `
+        ${this.#head(step, '吉他指板')}
+        ${this.#dots(results, i, items.length)}
+        <p class="prompt">${q.prompt}${q.all ? '<span class="count" data-el="count"></span>' : ''}</p>
+        ${step.instruction && i === 0 ? `<p class="muted">${step.instruction}</p>` : ''}
+        <div class="fb-wrap" data-el="fb"></div>
+        <p class="feedback"></p>
+        <div class="footer-actions" data-el="after" hidden><span class="spacer"></span><button class="btn btn-primary" data-act="next">下一題${icon.next()}</button></div>`;
+      this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。${q.prompt.replace(/<[^>]+>/g, '')}`);
+      const key = ([s, f]) => `${s}:${f}`;
+      const want = new Set(q.targets.map(key));
+      const found = new Set();
+      let wrong = 0;
+      let done = null;
+      const finished = new Promise((resolve) => { done = resolve; });
+      const count = () => {
+        const el = this.stage.querySelector('[data-el="count"]');
+        if (el) el.textContent = `${found.size} / ${want.size}`;
+      };
+      const showTargets = (kind) => q.targets.forEach(([s, f]) => { if (!found.has(key([s, f]))) fb.mark(s, f, kind); });
+      const fb = drawFretboard(this.stage.querySelector('[data-el="fb"]'), {
+        marks: q.marks || [],
+        label: q.prompt.replace(/<[^>]+>/g, ''),
+        onTap: (s, f) => {
+          if (done === null) return;
+          this.dirty = true;
+          this.hub.lastInputAt = Date.now();
+          const n = midiAt(s, f);
+          this.piano.unlock();
+          this.piano.noteOn(n, 0.7);
+          setTimeout(() => this.piano.noteOff(n), 700);
+          const k = key([s, f]);
+          if (want.has(k)) {
+            if (found.has(k)) return;
+            found.add(k);
+            fb.mark(s, f, 'ok', fretName(n).split('/')[0]);
+            count();
+            if (!q.all || found.size === want.size) {
+              this.#feedback(`答對了。${q.explain || ''}`, 'ok');
+              const d = done; done = null; d();
+            } else this.#feedback(`找到一個：第 ${s} 弦${f ? `第 ${f} 格` : '空弦'}`, 'ok');
+            return;
+          }
+          if (q.marks?.some((m) => m.s === s && m.f === f)) return; // tapping the given note again
+          wrong++;
+          fb.mark(s, f, 'bad', fretName(n).split('/')[0]);
+          setTimeout(() => { if (!found.has(k)) fb.unmark(s, f); }, 900);
+          this.#feedback(`這是 ${fretName(n)}（第 ${s} 弦${f ? `第 ${f} 格` : '空弦'}）。${q.hint || ''}`, 'bad');
+          if (wrong >= (q.all ? 3 : 2)) showTargets('soft');
+        },
+      });
+      count();
+      await Promise.race([finished, new Promise((_, reject) => this.signal.addEventListener('abort', () => reject(new Aborted()), { once: true }))]);
+      const firstTry = wrong === 0;
+      results.push(firstTry);
+      if (step.concept) this.store.recordConcept(step.concept, firstTry);
+      if (!firstTry) misses.push({ concept: step.concept, label: q.answerLabel || q.prompt.replace(/<[^>]+>/g, '') });
+      const after = this.stage.querySelector('[data-el="after"]');
+      after.hidden = false;
+      await this.#click(after.querySelector('[data-act="next"]'));
+    }
+    return { total: items.length, right: results.filter(Boolean).length, misses };
+  }
+
   // Listening questions with multiple-choice answers (e.g. "which chord was borrowed?").
   async step_choice(step) {
     const items = step.items;
@@ -922,14 +996,16 @@ export class LessonRunner {
         ${this.#dots(results, i, items.length)}
         <p class="prompt">${q.play ? `<span class="prompt-icon">${icon.ear()}</span>` : ''}${q.prompt}</p>
         ${q.staff ? [].concat(q.staff).map((_, k) => `<div class="staff staff-quiz" data-fig="${k}"></div>`).join('') : ''}
+        ${q.fretboard ? '<div class="fb-wrap" data-el="fb"></div>' : ''}
         ${q.play ? `<div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>` : ''}
-        <div class="choices${q.options.every((o) => o.length <= 4) ? ' choices-short' : q.options.length >= 4 ? ' choices-grid' : ''}" role="group" aria-label="選項">${q.options.map((o, k) => `<button class="btn choice-btn" data-opt="${k}">${o}</button>`).join('')}</div>
+        <div class="choices${q.options.every((o) => o.length <= 5) ? ' choices-short' : q.options.length >= 4 ? ' choices-grid' : ''}" role="group" aria-label="選項">${q.options.map((o, k) => `<button class="btn choice-btn" data-opt="${k}">${o}</button>`).join('')}</div>
         <p class="feedback"></p>
         <div class="footer-actions" data-el="after" hidden><span class="spacer"></span><button class="btn btn-primary" data-act="next">下一題${icon.next()}</button></div>`;
       // Notation questions: { notes, clef, key, label } figures drawn above the answers.
       [].concat(q.staff || []).forEach((fig, k) => {
         drawStaff(this.stage.querySelector(`[data-fig="${k}"]`), fig.notes || [], fig).catch(() => {});
       });
+      if (q.fretboard) drawFretboard(this.stage.querySelector('[data-el="fb"]'), q.fretboard);
       const play = () => q.play && this.#demo(q.play, { bpm: q.bpm || 76 });
       const replay = this.stage.querySelector('[data-act="replay"]');
       if (replay) replay.onclick = play;

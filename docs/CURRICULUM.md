@@ -89,6 +89,9 @@
 | 看譜分析 | 音程度數（先後與疊在一起）；三和弦名稱與原位／轉位 | interval-read、chord-read |
 | 聽力 | 音程、大小減三和弦與七和弦、大小調音階 | interval-ear、triad-quality、quality-ear、scale-ear |
 | 觀念 | 關係與同主音大小調、和聲小調、順階級數 | key-relations、diatonic-roman |
+| 吉他指板 | 空弦音名；看位置說音名（自然音／含升降）；在指定弦上找音；找出所有同名音；八度位置（隔一條弦 +2 格，跨 B 弦 +3 格） | fret-open、fret-name、fret-find、fret-all、fret-octave |
+
+吉他指板為標準調弦、空弦到第 12 格（`js/fretboard.js`、`js/lessons/guitar.js`）。手機上找位置的題目把指板直放（像和弦圖，低音 E 在左），每一格都是夠大的點擊目標；看位置說音名的題目與寬螢幕則橫放（像六線譜，高音 E 在上）。點指板會聽到該音。
 
 ## 判定方式
 

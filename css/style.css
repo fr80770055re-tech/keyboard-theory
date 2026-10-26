@@ -269,7 +269,8 @@ kbd {
 
 /* ---------- lesson ---------- */
 .lesson-head { display: flex; align-items: center; gap: 8px; margin: -12px 0 14px -12px; }
-.lesson-name { font-size: 1.05rem; margin: 0; }
+.lesson-name { font-size: 1.05rem; margin: 0; min-width: 0; }
+.lesson-head .btn { flex: none; white-space: nowrap; }
 .btn-icon-text { padding-left: 8px; }
 .seg-row { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
 .seg-track { display: flex; gap: 6px; flex: 1; list-style: none; margin: 0; padding: 0; }
@@ -542,8 +543,30 @@ body.in-lesson .prompt .big { font-size: 3.2rem; }
 /* Answer buttons: a grid for four or more, compact tiles for short answers (note names). */
 .choices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .choices-short { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); max-width: 560px; }
-.choices-short .choice-btn { justify-content: center; text-align: center; font-family: var(--font-display); font-size: 1.15rem; padding: 8px; }
+.choices-short .choice-btn { justify-content: center; text-align: center; font-family: var(--font-display); font-size: 1.15rem; padding: 8px 4px; min-width: 0; white-space: nowrap; }
 .staff-quiz { display: flex; justify-content: center; margin: 4px 0 8px; }
+/* Guitar fretboard (SVG): upright on phones, lying down on wide screens. */
+.fb-wrap { display: flex; justify-content: center; margin: 6px 0 10px; }
+.fretboard { display: block; height: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.fretboard .fb-fret { stroke: var(--line-strong); stroke-width: 1.5; }
+.fretboard .fb-nut { stroke: var(--text); stroke-width: 5; stroke-linecap: square; }
+.fretboard .fb-string { stroke: var(--ink-soft); }
+.fretboard .fb-inlay { fill: var(--line); }
+.fretboard .fb-num { fill: var(--muted); font-size: 11px; text-anchor: middle; font-family: var(--font-body); }
+.fretboard .fb-hit { fill: transparent; }
+.fretboard.is-live .fb-hit { cursor: pointer; }
+.fretboard.is-live .fb-hit:hover { fill: color-mix(in srgb, var(--accent) 10%, transparent); }
+.fretboard .fb-mark circle { stroke-width: 2; }
+.fretboard .fb-mark text { font-size: 12px; font-weight: 700; text-anchor: middle; font-family: var(--font-display); pointer-events: none; }
+.fretboard .fb-mark { pointer-events: none; }
+.fretboard .fb-hint circle { fill: var(--accent); stroke: var(--accent); }
+.fretboard .fb-hint text, .fretboard .fb-ok text, .fretboard .fb-bad text { fill: var(--on-accent); }
+.fretboard .fb-ok circle { fill: var(--ok); stroke: var(--ok); }
+.fretboard .fb-ok text, .fretboard .fb-bad text { fill: var(--surface); }
+.fretboard .fb-bad circle { fill: var(--bad); stroke: var(--bad); }
+.fretboard .fb-soft circle { fill: transparent; stroke: var(--accent); stroke-dasharray: 3 3; }
+.fretboard .fb-dot circle { fill: var(--text); stroke: none; }
+
 /* Without the keyboard below, a lesson's content starts at the top. */
 body.in-lesson.kb-off .stage { margin-top: 0; }
 
@@ -574,8 +597,9 @@ body.in-lesson.kb-off .stage { margin-top: 0; }
   .home > .drills { order: 0; margin: 0 0 28px; padding-top: 0; border-top: 0; }
   .phone-only { display: inline; }
   .drill-list { grid-template-columns: 1fr; }
-  .choices-grid { grid-template-columns: 1fr 1fr; }
-  .choices-short { grid-template-columns: repeat(4, 1fr); }
+  .choices-short { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .choices-short .choice-btn { font-size: clamp(.875rem, 4.2vw, 1.15rem); }
+  .choices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .choice-btn { min-height: 52px; }
   body.in-lesson.kb-off .prompt { font-size: 1.3rem; }
 }

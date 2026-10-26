@@ -4,6 +4,7 @@
 import {
   CONCEPTS, INTERVAL_EAR, INTERVAL_HARM, KEY_QUIZ, QUALITY_EAR, ROMAN_QUIZ, SCALE_EAR, TRIAD_EAR,
 } from './concepts.js';
+import { GUITAR_DRILLS } from './guitar.js';
 import { shuffleDraw } from './kit.js';
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -174,6 +175,7 @@ export const DRILLS = [
   { id: 'ear-chord', group: '聽力', title: '聽和弦性質', desc: '大、小、減三和弦與三種七和弦', minutes: 4, ear: true, steps: [bank('triad-quality', '聽力：三和弦', TRIAD_EAR, 5), bank('quality-ear', '聽力：七和弦', QUALITY_EAR, 3)] },
   { id: 'ear-scale', group: '聽力', title: '聽大小調音階', desc: '大調與三種小調', minutes: 3, ear: true, steps: [bank('scale-ear', '聽力：音階', SCALE_EAR, 4)] },
   { id: 'concepts', group: '觀念', title: '調性與級數', desc: '關係大小調、和聲小調、順階和弦級數', minutes: 3, steps: [bank('key-relations', '觀念：大小調', KEY_QUIZ, 4), bank('diatonic-roman', '觀念：級數', ROMAN_QUIZ, 4)] },
+  ...GUITAR_DRILLS,
 ];
 
 export const findDrill = (id) => DRILLS.find((x) => x.id === id);
