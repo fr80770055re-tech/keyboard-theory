@@ -21,6 +21,9 @@ const positionsOf = (pitchClass) => range(1, 6).flatMap((s) => range(0, FRETS).f
 function countText(s, f) {
   const open = OPEN[s];
   if (f === 0) return `${where(s, 0)}是 ${SHARP[open % 12]}。六條空弦由粗到細是 E A D G B E。`;
+  if (f === FRETS) return `第 12 格是空弦高八度：${STRING_NAME[s]}。`;
+  // Fret 5 sounds like the next (thinner) open string; on the G string it is fret 4.
+  if (s > 1 && f === (s === 3 ? 4 : 5)) return `${where(s, f)}和第 ${s - 1} 弦的空弦同音：${STRING_NAME[s - 1]}（調音時就是對這兩個音${s === 3 ? '；G 弦要用第 4 格' : ''}）。`;
   if (f <= 7) {
     const chain = range(0, f).map((k) => SHARP[(open + k) % 12]).join('→');
     return `${STRING_NAME[s]} 弦往上 ${f} 格：${chain}。`;
@@ -54,9 +57,10 @@ function openQuestion() {
   };
 }
 
-function nameQuestion(naturalOnly) {
+// strings / frets: limit where questions come from (root strings, landmark frets).
+function nameQuestion(naturalOnly, strings = range(1, 6), frets = range(naturalOnly ? 0 : 1, FRETS)) {
   let s; let f;
-  do { s = pick(range(1, 6)); f = pick(range(naturalOnly ? 0 : 1, FRETS)); } while (naturalOnly && !isNatural(midiAt(s, f)));
+  do { s = pick(strings); f = pick(frets); } while (naturalOnly && !isNatural(midiAt(s, f)));
   const n = midiAt(s, f);
   const options = naturalOnly ? LETTERS : SHARP.map((_, i) => fretName(i + 60));
   return {
@@ -71,8 +75,8 @@ function nameQuestion(naturalOnly) {
 
 // ---------- hear a name, tap the position ----------
 
-function findQuestion(naturalOnly) {
-  const s = pick(range(1, 6));
+function findQuestion(naturalOnly, strings = range(1, 6)) {
+  const s = pick(strings);
   const pcs = naturalOnly ? NATURAL : range(0, 11);
   const pitchClass = pick(pcs);
   const targets = range(0, FRETS).filter((f) => midiAt(s, f) % 12 === pitchClass).map((f) => [s, f]);
@@ -100,6 +104,23 @@ function allQuestion() {
     explain: `${name} 在每一條弦上都有，空弦到第 12 格一共 ${positionsOf(pitchClass).length} 個位置。`,
     answerLabel: `所有的 ${name}`,
   };
+}
+
+// One note name, string by string from the low E to the high E, frets 1–12 only
+// (no open strings), the way many teachers drill it with a metronome.
+function walkRound(pitchClass = pick(NATURAL)) {
+  const name = SHARP[pitchClass];
+  return [6, 5, 4, 3, 2, 1].map((s) => {
+    const targets = range(1, FRETS).filter((f) => midiAt(s, f) % 12 === pitchClass).map((f) => [s, f]);
+    return {
+      key: `walk${s}`,
+      prompt: `第 ${s} 弦（${STRING_NAME[s]} 弦）上的 <span class="big">${name}</span>`,
+      targets,
+      hint: '不用空弦；想想上一條弦的位置，再用八度或第 5 格的關係找過來。',
+      explain: `${countText(s, targets[0][1])}`,
+      answerLabel: `${STRING_NAME[s]} 弦的 ${name}`,
+    };
+  });
 }
 
 // Octave shapes: two strings up and two frets over; crossing the B string, three frets.
@@ -132,13 +153,19 @@ const choiceRound = (concept, kicker, make, k) => () => ({ type: 'choice', kicke
 const tapRound = (concept, kicker, make, k, instruction) => () => ({ type: 'fretboard', kicker, concept, instruction, items: unique(make, k) });
 const TAP = '點指板上的位置作答；點了會聽到那個音。';
 
+const ROOT_STRINGS = [6, 5];
+const LANDMARK_FRETS = [0, 3, 5, 7, 9, 12];
+
 export const GUITAR_DRILLS = [
   { id: 'gtr-open', group: '吉他指板', title: '空弦音名', desc: '六條弦的名字：E A D G B E', minutes: 2, steps: [choiceRound('fret-open', '吉他：空弦', openQuestion, 6)] },
-  { id: 'gtr-name-natural', group: '吉他指板', title: '看位置說音名', desc: '空弦到第 12 格的自然音', minutes: 3, steps: [choiceRound('fret-name', '吉他：看位置說音名', () => nameQuestion(true), 10)] },
-  { id: 'gtr-name-all', group: '吉他指板', title: '看位置說音名（含升降）', desc: '第 1 到 12 格，所有半音', minutes: 4, steps: [choiceRound('fret-name', '吉他：含升降記號', () => nameQuestion(false), 10)] },
-  { id: 'gtr-find', group: '吉他指板', title: '在指定弦上找音', desc: '聽到音名，點出它在哪一格', minutes: 3, steps: [tapRound('fret-find', '吉他：找位置', () => findQuestion(Math.random() < 0.7), 8, TAP)] },
+  { id: 'gtr-root', group: '吉他指板', title: '根音弦：第 6、5 弦', desc: '和弦根音多在這兩條弦，最先背', minutes: 3, speed: true, steps: [choiceRound('fret-name', '吉他：根音弦', () => nameQuestion(true, ROOT_STRINGS), 6), tapRound('fret-find', '吉他：在根音弦上找音', () => findQuestion(true, ROOT_STRINGS), 4, TAP)] },
+  { id: 'gtr-landmark', group: '吉他指板', title: '路標格', desc: '空弦、第 5、12 格與指板點的音', minutes: 3, speed: true, steps: [choiceRound('fret-name', '吉他：路標格', () => nameQuestion(true, range(1, 6), LANDMARK_FRETS), 8)] },
+  { id: 'gtr-name-natural', group: '吉他指板', speed: true, title: '看位置說音名', desc: '空弦到第 12 格的自然音', minutes: 3, steps: [choiceRound('fret-name', '吉他：看位置說音名', () => nameQuestion(true), 10)] },
+  { id: 'gtr-name-all', group: '吉他指板', speed: true, title: '看位置說音名（含升降）', desc: '第 1 到 12 格，所有半音', minutes: 4, steps: [choiceRound('fret-name', '吉他：含升降記號', () => nameQuestion(false), 10)] },
+  { id: 'gtr-find', group: '吉他指板', speed: true, title: '在指定弦上找音', desc: '聽到音名，點出它在哪一格', minutes: 3, steps: [tapRound('fret-find', '吉他：找位置', () => findQuestion(Math.random() < 0.7), 8, TAP)] },
+  { id: 'gtr-walk', group: '吉他指板', title: '一個音名走遍六弦', desc: '從第 6 弦到第 1 弦依序找同一個音', minutes: 3, speed: true, steps: [() => ({ type: 'fretboard', kicker: '吉他：走遍六弦', concept: 'fret-all', instruction: '不用空弦，第 1 到 12 格。熟了之後跟著節拍器從慢速開始，每拍一個位置。', items: walkRound() })] },
   { id: 'gtr-all', group: '吉他指板', title: '找出所有同名音', desc: '一個音名在整個指板上的位置', minutes: 4, steps: [tapRound('fret-all', '吉他：找出所有位置', allQuestion, 3, TAP)] },
-  { id: 'gtr-octave', group: '吉他指板', title: '八度位置', desc: '隔一條弦往上 2 格；跨過 B 弦 3 格', minutes: 3, steps: [tapRound('fret-octave', '吉他：八度形狀', octaveQuestion, 6, TAP)] },
+  { id: 'gtr-octave', group: '吉他指板', speed: true, title: '八度位置', desc: '隔一條弦往上 2 格；跨過 B 弦 3 格', minutes: 3, steps: [tapRound('fret-octave', '吉他：八度形狀', octaveQuestion, 6, TAP)] },
 ];
 
 // Register the fretboard concepts for spaced review.

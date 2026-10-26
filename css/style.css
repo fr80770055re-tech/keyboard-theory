@@ -540,6 +540,25 @@ body.in-lesson .prompt .big { font-size: 3.2rem; }
 .welcome-drills { margin-top: 20px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
 .welcome-drills .btn { padding-left: 4px; color: var(--accent); }
 
+.guide-link { padding-left: 0; color: var(--accent); margin: -2px 0 8px; text-align: left; }
+.result-speed { color: var(--ink-soft); margin: -6px 0 14px; }
+.result-speed b { font-family: var(--font-display); font-size: 1.2rem; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Practice guide: a readable column, each principle with its drills. */
+.guide { max-width: 720px; }
+.guide .lesson-head { margin-bottom: 18px; }
+.guide-sec { padding: 22px 0; border-top: 1px solid var(--line); }
+.guide-sec h2 { font-size: 1.2rem; }
+.guide-drills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.plan-list li { border-left: 3px solid var(--accent); padding: 2px 0 2px 16px; }
+.plan-list h3 { margin-bottom: .2em; }
+.plan-list p { margin-bottom: .5em; color: var(--ink-soft); }
+.guide-sources ul { padding-left: 1.1em; margin: 0; }
+.guide-sources li { margin-bottom: .6em; }
+.guide-sources li span { display: block; }
+.guide-sources a { color: var(--accent); text-underline-offset: 3px; overflow-wrap: anywhere; }
+
 /* Answer buttons: a grid for four or more, compact tiles for short answers (note names). */
 .choices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .choices-short { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); max-width: 560px; }

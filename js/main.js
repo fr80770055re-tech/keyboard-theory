@@ -7,6 +7,7 @@ import { TRACKS, findLesson } from './lessons/index.js';
 import { LESSON_HIGH, LESSON_LOW, fullName, sci, setSolfege } from './notes.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 import { DRILLS, findDrill } from './lessons/drills.js';
+import { GUIDES } from './lessons/guides.js';
 import { icon } from './icons.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -371,12 +372,13 @@ function lessonsHtml() {
 }
 
 // Tap-to-answer theory practice: no keyboard needed, so it leads on phones.
+const GUIDE_FOR = { 吉他指板: 'fretboard' };
 function drillsHtml() {
   const groups = [...new Set(DRILLS.map((d) => d.group))];
   return `<section class="panel drills" id="drills" aria-labelledby="drills-title">
     <div class="row"><h2 id="drills-title">樂理練習</h2><span class="tag">不用琴鍵 · 手機直式可用</span></div>
     <p class="muted drills-lead">每輪約 3–4 分鐘，看譜或聽完後點選答案。答錯的會排進今日複習。<span class="phone-only">彈奏的課程需要琴鍵：接 MIDI 鍵盤、用電腦，或把手機橫放點畫面上的琴鍵。</span></p>
-    ${groups.map((g) => `<h3 class="drill-group">${g}</h3>
+    ${groups.map((g) => `<h3 class="drill-group">${g}</h3>${GUIDE_FOR[g] ? `<button class="btn btn-ghost guide-link" data-guide="${GUIDE_FOR[g]}">怎麼練才記得住？看${GUIDES[GUIDE_FOR[g]].title}${icon.next()}</button>` : ''}
       <ul class="drill-list">${DRILLS.filter((d) => d.group === g).map((d) => `<li><button class="drill" data-drill="${d.id}">
         <b>${d.title}</b><span>${d.desc}</span><small>約 ${d.minutes} 分鐘${d.ear ? ' · 需要聲音' : ''}</small>
       </button></li>`).join('')}</ul>`).join('')}
@@ -412,6 +414,7 @@ function showHome() {
   });
   view.querySelectorAll('[data-review]').forEach((b) => { b.onclick = startReview; });
   view.querySelectorAll('[data-drill]').forEach((b) => { b.onclick = () => startDrill(b.dataset.drill); });
+  view.querySelectorAll('[data-guide]').forEach((b) => { b.onclick = () => showGuide(b.dataset.guide); });
   view.scrollTo(0, 0);
 }
 
@@ -433,15 +436,49 @@ function startReview() {
   launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: showHome }), 0);
 }
 
-function startDrill(id) {
+// A practice guide: principles in plain words, each linked to its drills, a
+// week-by-week plan and the sources it draws on.
+function showGuide(id) {
+  const g = GUIDES[id];
+  if (!g) return;
+  runner = null;
+  setLessonMode(false);
+  setKeyboardVisible(false);
+  const back = () => showGuide(id);
+  const drillBtns = (ids) => (ids.length ? `<div class="guide-drills">${ids.map((d) => `<button class="btn" data-drill="${d}">${findDrill(d).title}${icon.next()}</button>`).join('')}</div>` : '');
+  view.innerHTML = `<article class="guide">
+    <div class="lesson-head"><button class="btn btn-ghost btn-icon-text" data-act="home">${icon.back()}回首頁</button></div>
+    <div class="staff-rule" aria-hidden="true"></div>
+    <h1>${g.title}</h1>
+    <p class="lead">${g.lead}</p>
+    ${g.sections.map((sec) => `<section class="guide-sec"><h2>${sec.title}</h2><div class="explain-body">${sec.body}</div>${drillBtns(sec.drills)}</section>`).join('')}
+    <section class="guide-sec guide-plan">
+      <h2>${g.plan.title}</h2>
+      <p class="muted">${g.plan.note}</p>
+      <ol class="plan-list">${g.plan.weeks.map((w) => `<li><h3>${w.title}</h3><p>${w.body}</p>${drillBtns(w.drills)}</li>`).join('')}</ol>
+    </section>
+    <section class="guide-sec guide-sources">
+      <h2>資料來源</h2>
+      <p class="muted small">以上是整理各來源觀點後用自己的話重寫，不是直接引用；建議有興趣的話讀原文。</p>
+      <ul>${g.sources.map((src) => `<li><a href="${src.url}" target="_blank" rel="noopener">${src.title}</a><span class="muted small">${src.note}</span></li>`).join('')}</ul>
+    </section>
+  </article>`;
+  view.querySelector('[data-act="home"]').onclick = () => { showHome(); view.querySelector('#drills')?.scrollIntoView({ block: 'start' }); };
+  view.querySelectorAll('[data-drill]').forEach((b) => { b.onclick = () => startDrill(b.dataset.drill, back, '回指引'); });
+  view.scrollTo(0, 0);
+}
+
+function startDrill(id, back = showHome, backLabel = '回首頁') {
   const drill = findDrill(id);
   if (!drill) return;
   const lesson = {
     id: `drill-${id}`, isReview: true, isDrill: true, noKeys: true, title: `樂理練習：${drill.title}`,
+    speed: Boolean(drill.speed),
+    backLabel,
     segments: [{ kind: 'drill', minutes: drill.minutes, graded: true, steps: drill.steps }],
-    again: () => startDrill(id),
+    again: () => startDrill(id, back, backLabel),
   };
-  launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: showHome }), 0);
+  launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: back }), 0);
 }
 
 function launch(r, segment) {

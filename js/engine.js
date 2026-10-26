@@ -37,6 +37,7 @@ export class LessonRunner {
     this.ctrl = new AbortController();
     this.signal = this.ctrl.signal;
     this.segResults = [];
+    this.answerTimes = []; // seconds to each correct answer (for drills with a speed goal)
     this.current = 0; // segment index in progress
     this.dirty = false; // has the learner done anything in this segment yet?
     hub.addEventListener('noteon', () => { this.dirty = true; }, { signal: this.signal });
@@ -277,10 +278,11 @@ export class LessonRunner {
         <div class="staff-rule" aria-hidden="true"></div>
         <h2 id="stage-title">這一輪練習完成了</h2>
         ${pctHtml(r.acc, '答對')}
+        ${this.lesson.speed ? speedHtml(this.answerTimes, r.acc) : ''}
         ${weakHtml(r.misses)}
         <p class="muted small">答錯的概念會排進今日複習。</p>
         <div class="footer-actions">
-          <button class="btn" data-act="home">回首頁</button>
+          <button class="btn" data-act="home">${this.lesson.backLabel || '回首頁'}</button>
           <span class="spacer"></span>
           <button class="btn btn-primary" data-act="again">${icon.replay()}再練一輪</button>
         </div>
@@ -957,6 +959,7 @@ export class LessonRunner {
             found.add(k);
             fb.mark(s, f, 'ok', fretName(n).split('/')[0]);
             count();
+            if (!q.all) this.answerTimes.push((performance.now() - shownAt) / 1000);
             if (!q.all || found.size === want.size) {
               this.#feedback(`答對了。${q.explain || ''}`, 'ok');
               const d = done; done = null; d();
@@ -972,6 +975,7 @@ export class LessonRunner {
         },
       });
       count();
+      const shownAt = performance.now();
       await Promise.race([finished, new Promise((_, reject) => this.signal.addEventListener('abort', () => reject(new Aborted()), { once: true }))]);
       const firstTry = wrong === 0;
       results.push(firstTry);
@@ -1012,6 +1016,7 @@ export class LessonRunner {
       this.#announce(`第 ${i + 1} 題，共 ${items.length} 題。${q.prompt}選項：${q.options.map((o, k) => `${k + 1}，${o}`).join('；')}。${q.play ? '按 L 可以再聽一次。' : ''}`);
       await this.#pause(300);
       play();
+      const shownAt = performance.now();
       let firstTry = true;
       await new Promise((resolve, reject) => {
         const onAbort = () => reject(new Aborted());
@@ -1022,6 +1027,7 @@ export class LessonRunner {
             this.hub.lastInputAt = Date.now(); // tapping answers counts as practice time
             const k = Number(b.dataset.opt);
             if (k === q.answer) {
+              this.answerTimes.push((performance.now() - shownAt) / 1000);
               b.classList.add('is-right');
               this.stage.querySelectorAll('[data-opt]').forEach((x) => { x.disabled = true; });
               this.#feedback(`答對了。${q.explain || ''}`, 'ok');
@@ -1130,6 +1136,14 @@ export class LessonRunner {
     await this.#pause(1200);
     return { total: notes.length, right, misses };
   }
+}
+
+// Average answer time for recall drills: the aim is to know, not to count.
+function speedHtml(times, acc) {
+  if (!times.length) return '';
+  const avg = times.reduce((a, b) => a + b, 0) / times.length;
+  const note = acc < 0.85 ? '先求對，再求快：正確率穩定在九成左右，再來看秒數。' : avg <= 2 ? '已經到了「不用數」的速度，可以換更難的練習。' : avg <= 5 ? '目標是 2 秒內：先求對，再慢慢縮短。' : '先不急，熟了自然會變快。目標是 2 秒內。';
+  return `<p class="result-speed">平均每題 <b>${avg.toFixed(1)} 秒</b>。${note}</p>`;
 }
 
 // Segment accuracy in words as well as numbers.
