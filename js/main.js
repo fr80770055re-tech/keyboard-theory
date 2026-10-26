@@ -6,6 +6,7 @@ import { LessonRunner, SEGMENT_NAMES, starsHtml } from './engine.js';
 import { TRACKS, findLesson } from './lessons/index.js';
 import { LESSON_HIGH, LESSON_LOW, fullName, sci, setSolfege } from './notes.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
+import { DRILLS, findDrill } from './lessons/drills.js';
 import { icon } from './icons.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -174,9 +175,15 @@ function showLevelChoice() {
         <button class="choice" data-level="beginner"><b>入門</b><span>從沒學過，或很久沒碰琴。從認識鍵盤、中央 C、手指編號開始。</span></button>
         <button class="choice" data-level="advanced"><b>進階</b><span>會認鍵盤、彈過簡單曲子，想學音程、調性、七和弦與伴奏。</span></button>
       </div>
+      <p class="welcome-drills">手邊沒有琴鍵，或正在用手機？<button class="btn btn-ghost" data-level="beginner" data-goto="drills">先做樂理練習（讀譜、調號、聽力）${icon.next()}</button></p>
     </section>`;
   view.querySelectorAll('[data-level]').forEach((b) => {
-    b.onclick = () => { store.setLevel(b.dataset.level); homeTrack = b.dataset.level; showHome(); };
+    b.onclick = () => {
+      store.setLevel(b.dataset.level);
+      homeTrack = b.dataset.level;
+      showHome();
+      if (b.dataset.goto) view.querySelector('#drills')?.scrollIntoView({ block: 'start' });
+    };
   });
 }
 
@@ -360,6 +367,19 @@ function lessonsHtml() {
   </section>`;
 }
 
+// Tap-to-answer theory practice: no keyboard needed, so it leads on phones.
+function drillsHtml() {
+  const groups = [...new Set(DRILLS.map((d) => d.group))];
+  return `<section class="panel drills" id="drills" aria-labelledby="drills-title">
+    <div class="row"><h2 id="drills-title">樂理練習</h2><span class="tag">不用琴鍵 · 手機直式可用</span></div>
+    <p class="muted drills-lead">每輪約 3–4 分鐘，看譜或聽完後點選答案。答錯的會排進今日複習。<span class="phone-only">彈奏的課程需要琴鍵：接 MIDI 鍵盤、用電腦，或把手機橫放點畫面上的琴鍵。</span></p>
+    ${groups.map((g) => `<h3 class="drill-group">${g}</h3>
+      <ul class="drill-list">${DRILLS.filter((d) => d.group === g).map((d) => `<li><button class="drill" data-drill="${d.id}">
+        <b>${d.title}</b><span>${d.desc}</span><small>約 ${d.minutes} 分鐘${d.ear ? ' · 需要聲音' : ''}</small>
+      </button></li>`).join('')}</ul>`).join('')}
+  </section>`;
+}
+
 function showHome() {
   runner = null;
   setLessonMode(false);
@@ -379,7 +399,7 @@ function showHome() {
   // With everything at three stars, the review itself is the next step: don't offer it twice.
   else if (!reviewDone) top = dailyHtml() + (next.kind === 'review' ? '' : heroHtml(true));
   else top = heroHtml(false) + dailyHtml(true, next.kind === 'review');
-  view.innerHTML = `${top}<div class="home-grid">${lessonsHtml()}${statsHtml()}</div>`;
+  view.innerHTML = `<div class="home">${top}${drillsHtml()}<div class="home-grid">${lessonsHtml()}${statsHtml()}</div></div>`;
 
   view.querySelectorAll('[data-track]').forEach((b) => {
     b.onclick = () => { homeTrack = b.dataset.track; store.setLevel(homeTrack); showHome(); };
@@ -388,6 +408,7 @@ function showHome() {
     b.onclick = () => startLesson(b.dataset.start, Number(b.dataset.seg));
   });
   view.querySelectorAll('[data-review]').forEach((b) => { b.onclick = startReview; });
+  view.querySelectorAll('[data-drill]').forEach((b) => { b.onclick = () => startDrill(b.dataset.drill); });
   view.scrollTo(0, 0);
 }
 
@@ -409,9 +430,20 @@ function startReview() {
   launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: showHome }), 0);
 }
 
+function startDrill(id) {
+  const drill = findDrill(id);
+  if (!drill) return;
+  const lesson = {
+    id: `drill-${id}`, isReview: true, isDrill: true, noKeys: true, title: `樂理練習：${drill.title}`,
+    segments: [{ kind: 'drill', minutes: drill.minutes, graded: true, steps: drill.steps }],
+    again: () => startDrill(id),
+  };
+  launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: showHome }), 0);
+}
+
 function launch(r, segment) {
   $('#banner').hidden = true;
-  setKeyboardVisible(true);
+  setKeyboardVisible(!r.lesson.noKeys);
   setLessonMode(true);
   // On narrow screens the keyboard scrolls; start with middle C in view.
   const sc = $('.kb-scroll');

@@ -9,7 +9,7 @@ import { drawStaff, markStaff } from './staff.js';
 import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 
 export const SEGMENT_NAMES = {
-  warmup: '暖身複習', concept: '新概念', practice: '引導練習', piece: '實際曲目', summary: '總結評分', review: '今日複習',
+  warmup: '暖身複習', concept: '新概念', practice: '引導練習', piece: '實際曲目', summary: '總結評分', review: '今日複習', drill: '樂理練習',
 };
 
 export function starsFor(acc) {
@@ -63,6 +63,7 @@ export class LessonRunner {
         this.dirty = false;
         if (!this.lesson.isReview && i + 1 < segs.length) this.store.updateLesson(this.lesson.id, { segment: i + 1 });
         this.segResults[i] = result;
+        if (this.lesson.isDrill) return await this.#finishDrill(result);
         if (this.lesson.isReview) return await this.#finishReview(result);
         this.store.markDay('segment');
         if (segs[i].graded) {
@@ -96,6 +97,8 @@ export class LessonRunner {
     const seg = this.lesson.segments[this.current];
     dlg.querySelector('#leave-msg').innerHTML = !this.dirty || this.atResult
       ? '目前沒有會遺失的進度。'
+      : this.lesson.isDrill
+      ? '這一輪練習還沒做完，離開後這一輪不會記錄。'
       : this.lesson.isReview
       ? '今日複習還沒做完，離開後下次要從頭開始。'
       : `「<b>${SEGMENT_NAMES[seg.kind]}</b>」這一段還沒做完，離開後下次會從這一段的開頭重來${this.current > 0 ? `；前面完成的 ${this.current} 段都已保存` : ''}。`;
@@ -262,6 +265,32 @@ export class LessonRunner {
     ]);
     if (btn === 'retry') return this.run(segs.length - 1);
     this.onExit();
+  }
+
+  // A round of tap-to-answer theory practice (no keyboard): score, weak spots, go again.
+  async #finishDrill(r) {
+    this.store.markDay('segment');
+    this.#setSegment(0, true);
+    this.stage.innerHTML = `
+      <div class="result">
+        <div class="staff-rule" aria-hidden="true"></div>
+        <h2 id="stage-title">這一輪練習完成了</h2>
+        ${pctHtml(r.acc, '答對')}
+        ${weakHtml(r.misses)}
+        <p class="muted small">答錯的概念會排進今日複習。</p>
+        <div class="footer-actions">
+          <button class="btn" data-act="home">回首頁</button>
+          <span class="spacer"></span>
+          <button class="btn btn-primary" data-act="again">${icon.replay()}再練一輪</button>
+        </div>
+      </div>`;
+    this.#showResultTop();
+    const choice = await Promise.race([
+      this.#click(this.stage.querySelector('[data-act="again"]'), true, false).then(() => 'again'),
+      this.#click(this.stage.querySelector('[data-act="home"]'), false, false).then(() => 'home'),
+    ]);
+    if (choice === 'again' && this.lesson.again) this.lesson.again();
+    else this.onExit();
   }
 
   async #finishReview(r) {
@@ -891,11 +920,16 @@ export class LessonRunner {
       this.stage.innerHTML = `
         ${this.#head(step, '聽與辨')}
         ${this.#dots(results, i, items.length)}
-        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>${q.prompt}</p>
+        <p class="prompt">${q.play ? `<span class="prompt-icon">${icon.ear()}</span>` : ''}${q.prompt}</p>
+        ${q.staff ? [].concat(q.staff).map((_, k) => `<div class="staff staff-quiz" data-fig="${k}"></div>`).join('') : ''}
         ${q.play ? `<div class="row"><button class="btn" data-act="replay">${icon.replay()}再聽一次</button></div>` : ''}
-        <div class="choices" role="group" aria-label="選項">${q.options.map((o, k) => `<button class="btn choice-btn" data-opt="${k}">${o}</button>`).join('')}</div>
+        <div class="choices${q.options.every((o) => o.length <= 4) ? ' choices-short' : q.options.length >= 4 ? ' choices-grid' : ''}" role="group" aria-label="選項">${q.options.map((o, k) => `<button class="btn choice-btn" data-opt="${k}">${o}</button>`).join('')}</div>
         <p class="feedback"></p>
         <div class="footer-actions" data-el="after" hidden><span class="spacer"></span><button class="btn btn-primary" data-act="next">下一題${icon.next()}</button></div>`;
+      // Notation questions: { notes, clef, key, label } figures drawn above the answers.
+      [].concat(q.staff || []).forEach((fig, k) => {
+        drawStaff(this.stage.querySelector(`[data-fig="${k}"]`), fig.notes || [], fig).catch(() => {});
+      });
       const play = () => q.play && this.#demo(q.play, { bpm: q.bpm || 76 });
       const replay = this.stage.querySelector('[data-act="replay"]');
       if (replay) replay.onclick = play;
@@ -909,6 +943,7 @@ export class LessonRunner {
         this.stage.querySelectorAll('[data-opt]').forEach((b) => {
           b.onclick = () => {
             this.dirty = true;
+            this.hub.lastInputAt = Date.now(); // tapping answers counts as practice time
             const k = Number(b.dataset.opt);
             if (k === q.answer) {
               b.classList.add('is-right');
@@ -1022,10 +1057,10 @@ export class LessonRunner {
 }
 
 // Segment accuracy in words as well as numbers.
-function pctHtml(acc) {
+function pctHtml(acc, verb = '彈對') {
   const pct = Math.round(acc * 100);
   const word = acc >= 0.95 ? '非常穩' : acc >= 0.85 ? '很不錯' : acc >= 0.7 ? '大致掌握' : '還需要多練幾次';
-  return `<div class="result-score"><p class="result-pct">一次就彈對 <b>${pct}%</b> · ${word}</p></div>`;
+  return `<div class="result-score"><p class="result-pct">一次就${verb} <b>${pct}%</b> · ${word}</p></div>`;
 }
 
 function weakHtml(misses) {

@@ -42,12 +42,13 @@ function staveNote(VF, x, clef) {
 }
 
 // Draws one staff into el. opts: clef ('treble' | 'bass' | 'rhythm' for a
-// one-line rhythm staff), time ('4/4' or null), states: per-note class names
-// ('cur' | 'done' | 'miss'), label (aria label).
+// one-line rhythm staff), time ('4/4' or null), key (a major key such as 'G'
+// or 'Bb' for its key signature), states: per-note class names
+// ('cur' | 'done' | 'miss'), label (aria label). notes may be empty.
 export async function drawStaff(el, notes, opts = {}) {
   const VF = await loadVexFlow();
   const clef = opts.clef || clefFor(notes);
-  const width = Math.max(260, 110 + notes.reduce((w, x) => w + 30 + (x.d ?? 1) * 14, 0));
+  const width = Math.max(260, 110 + (opts.key ? 50 : 0) + notes.reduce((w, x) => w + 30 + (x.d ?? 1) * 14, 0));
   const height = clef === 'rhythm' ? 100 : 140;
   el.innerHTML = '';
   el.setAttribute('role', 'img');
@@ -59,8 +60,10 @@ export async function drawStaff(el, notes, opts = {}) {
     ? new VF.Stave(8, 18, width - 16, { numLines: 1 })
     : new VF.Stave(8, 18, width - 16);
   if (clef !== 'rhythm') stave.addClef(clef);
+  if (opts.key && clef !== 'rhythm') stave.addKeySignature(opts.key);
   if (opts.time && clef !== 'rhythm') stave.addTimeSignature(opts.time);
   stave.setContext(ctx).draw();
+  if (!notes.length) return finish(el, width, height, []);
   const vfNotes = notes.map((x) => staveNote(VF, x, clef));
   const voice = new VF.Voice({ numBeats: 4, beatValue: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice.addTickables(vfNotes);
@@ -78,13 +81,18 @@ export async function drawStaff(el, notes, opts = {}) {
     const bx = (vfNotes[i].getAbsoluteX() + vfNotes[i + 1].getAbsoluteX()) / 2 + 4;
     ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
   });
+  (opts.states || []).forEach((cls, i) => { if (cls) vfNotes[i]?.getSVGElement?.()?.classList.add(cls); });
+  return finish(el, width, height, vfNotes, opts.scale);
+}
+
+// Make the SVG scale with its container.
+function finish(el, width, height, vfNotes, scale = 1.25) {
   const svg = el.querySelector('svg');
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.removeAttribute('width');
   svg.removeAttribute('height');
-  svg.style.width = `min(100%, ${width * (opts.scale || 1.25)}px)`;
+  svg.style.width = `min(100%, ${width * scale}px)`;
   svg.setAttribute('aria-hidden', 'true');
-  (opts.states || []).forEach((cls, i) => { if (cls) vfNotes[i]?.getSVGElement?.()?.classList.add(cls); });
   return { notes: vfNotes };
 }
 
