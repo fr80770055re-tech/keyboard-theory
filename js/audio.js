@@ -16,13 +16,16 @@ export class Piano {
   // Must be called from a user gesture at least once.
   unlock() {
     if (!this.ctx) {
+      // iPhone Safari 17+: play like a music app, so the ring/silent switch doesn't mute lessons.
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* unsupported */ }
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.8;
       this.master.connect(this.ctx.destination);
       this.loading = this.#load();
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    // 'interrupted' (iOS, after a call or switching apps) needs a resume too.
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
   }
 
   async #load() {

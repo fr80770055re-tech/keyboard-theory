@@ -23,9 +23,12 @@ setSolfege(store.settings.solfege);
 
 // ---------- sound & keyboard wiring ----------
 
+// Phones only allow audio to start from a finished tap (touchend / click), not
+// from touch-down, so listen for all of them; unlock() is cheap once running.
 const unlockAudio = () => piano.unlock();
-window.addEventListener('pointerdown', unlockAudio);
-window.addEventListener('keydown', unlockAudio);
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+  window.addEventListener(type, unlockAudio, { capture: true, passive: true });
+}
 
 hub.addEventListener('noteon', (e) => {
   const { note, velocity, source } = e.detail;
