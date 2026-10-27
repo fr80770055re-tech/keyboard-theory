@@ -31,6 +31,17 @@ const conceptName = (id) => CONCEPTS[id]?.name || id;
 
 class Aborted extends Error {}
 
+// Returned by a step (or a segment) when the learner pressed 上一頁.
+const BACK = Symbol('back');
+
+// Aborts when either signal does (AbortSignal.any is missing on older Safari).
+function anySignal(a, b) {
+  if (AbortSignal.any) return AbortSignal.any([a, b]);
+  const c = new AbortController();
+  for (const s of [a, b]) s.addEventListener('abort', () => c.abort(), { once: true });
+  return c.signal;
+}
+
 export class LessonRunner {
   constructor({ root, lesson, hub, kb, piano, store, onExit, nextLesson = null }) {
     Object.assign(this, { root, lesson, hub, kb, piano, store, onExit, nextLesson });
@@ -53,18 +64,25 @@ export class LessonRunner {
       const saved = this.store.lesson(this.lesson.id).segResults || [];
       this.segResults = startSegment > 0 ? saved.slice(0, startSegment) : [];
     }
+    this.runs = [];
     try {
       const segs = this.lesson.segments;
-      for (let i = startSegment; i < segs.length; i++) {
-        if (!this.lesson.isReview) this.store.updateLesson(this.lesson.id, { segment: i });
+      // from: the step to start the segment at; -1 = its last step (came back to it).
+      let i = startSegment;
+      let from = 0;
+      while (i < segs.length) {
+        if (!this.lesson.isReview && from === 0) this.store.updateLesson(this.lesson.id, { segment: i });
         this.current = i;
         this.dirty = false;
         this.atResult = false;
-        const result = await this.#runSegment(i);
+        const result = await this.#runSegment(i, from);
+        if (result === BACK) { i--; from = -1; continue; } // previous segment, last step
+        from = 0;
         // The segment is saved from here on: leaving now loses nothing.
         this.dirty = false;
         if (!this.lesson.isReview && i + 1 < segs.length) this.store.updateLesson(this.lesson.id, { segment: i + 1 });
         this.segResults[i] = result;
+        if (this.lesson.isReview) this.#setBack(false);
         if (this.lesson.isDrill) return await this.#finishDrill(result);
         if (this.lesson.isReview) return await this.#finishReview(result);
         this.store.markDay('segment');
@@ -72,8 +90,13 @@ export class LessonRunner {
           const keep = this.segResults.map((r) => r && { acc: r.acc, total: r.total, right: r.right });
           this.store.updateLesson(this.lesson.id, { segResults: keep });
         }
-        if (segs[i].graded && segs[i].kind !== 'summary') await this.#showSegmentResult(i, result);
+        if (segs[i].graded && segs[i].kind !== 'summary' && await this.#showSegmentResult(i, result) === BACK) {
+          from = -1; // back from the result screen: the segment's last step
+          continue;
+        }
+        i++;
       }
+      this.#setBack(false);
       await this.#finish();
     } catch (e) {
       if (!(e instanceof Aborted)) throw e;
@@ -117,8 +140,9 @@ export class LessonRunner {
     const name = this.lesson.isReview ? this.lesson.title : `第 ${this.lesson.num} 課　${this.lesson.title}`;
     this.root.innerHTML = `
       <div class="lesson-head">
-        <button class="btn btn-ghost btn-icon-text" data-act="exit" title="已完成的段落會保存；目前這一段若沒做完，下次會從頭開始">${icon.back()}離開</button>
+        <button class="btn btn-ghost btn-icon-text" data-act="exit" title="已完成的段落會保存；目前這一段若沒做完，下次會從頭開始">${icon.cross()}離開</button>
         <h1 class="lesson-name">${name}</h1>
+        ${this.lesson.isDrill ? '' : `<button class="btn btn-ghost btn-icon-text lesson-back" data-act="back" disabled title="回到上一個畫面再看一次；已作答的題目照第一次的結果計分">${icon.back()}上一頁</button>`}
       </div>
       <div class="seg-row">
         ${segs.length > 1 ? `<ol class="seg-track" aria-label="課程進度">${segs.map((s) => `<li class="seg"><span>${SEGMENT_NAMES[s.kind]}</span></li>`).join('')}</ol>` : ''}
@@ -126,7 +150,29 @@ export class LessonRunner {
       </div>
       <section class="stage" aria-labelledby="stage-title"></section>`;
     this.root.querySelector('[data-act="exit"]').onclick = () => this.requestExit();
+    this.backBtn = this.root.querySelector('[data-act="back"]');
+    if (this.backBtn) this.backBtn.onclick = () => this.stepCtrl?.abort();
     this.stage = this.root.querySelector('.stage');
+  }
+
+  #setBack(on) {
+    if (this.backBtn) this.backBtn.disabled = !on;
+  }
+
+  // Run one screen under its own signal, so 上一頁 can cancel just that screen
+  // (its listeners, timers and playback all hang off this.signal).
+  async #scoped(fn) {
+    const ctrl = new AbortController();
+    this.stepCtrl = ctrl;
+    this.signal = anySignal(this.ctrl.signal, ctrl.signal);
+    const back = () => ctrl.signal.aborted && !this.ctrl.signal.aborted;
+    try {
+      const r = await fn();
+      return back() ? BACK : r;
+    } catch (e) {
+      if (e instanceof Aborted && back()) return BACK;
+      throw e;
+    }
   }
 
   #setSegment(i, allDone = false) {
@@ -153,36 +199,60 @@ export class LessonRunner {
 
   // ---------- segments ----------
 
-  async #runSegment(i) {
+  // Runs segment i from step `from` (-1 = its last step). Returns its result, or
+  // BACK when 上一頁 is pressed on its first step.
+  async #runSegment(i, from = 0) {
     const seg = this.lesson.segments[i];
     this.#setSegment(i);
-    let steps = seg.steps;
-    if (seg.kind === 'warmup') {
-      const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 3);
-      if (due.length) {
-        steps = [
-          { type: 'explain', title: '先複習上次不熟的地方', body: `<p>今天的暖身：<b>${due.map(conceptName).join('、')}</b>。</p><p class="muted">系統依你的答題紀錄自動安排複習：答錯的概念很快會再出現，答對的會隔越來越久。</p>` },
-          ...due.flatMap((id) => reviewSteps(id)),
-        ];
+    // The steps (and any random questions in them) are fixed the first time
+    // through, so going back shows the same screen again.
+    let run = this.runs[i];
+    if (!run) {
+      let steps = seg.steps;
+      if (seg.kind === 'warmup') {
+        const due = this.store.dueConcepts().filter((id) => CONCEPTS[id]).slice(0, 3);
+        if (due.length) {
+          steps = [
+            { type: 'explain', title: '先複習上次不熟的地方', body: `<p>今天的暖身：<b>${due.map(conceptName).join('、')}</b>。</p><p class="muted">系統依你的答題紀錄自動安排複習：答錯的概念很快會再出現，答對的會隔越來越久。</p>` },
+            ...due.flatMap((id) => reviewSteps(id)),
+          ];
+        }
       }
+      run = this.runs[i] = { steps, resolved: [], results: [] };
     }
-    const total = { total: 0, right: 0, misses: [] };
-    for (const raw of steps) {
+    const { steps } = run;
+    let k = from < 0 ? steps.length - 1 : from;
+    while (k < steps.length) {
       document.body.classList.remove('result-mode');
-      const step = typeof raw === 'function' ? raw() : raw;
+      const raw = steps[k];
+      const step = run.resolved[k] ??= typeof raw === 'function' ? raw() : raw;
       // Reading steps get a smaller keyboard so the text has room on laptops.
       document.body.classList.toggle('step-read', step.type === 'explain');
       this.kb.clearMarks();
       this.kb.setLabelMode(step.labels || 'c');
-      const r = await this[`step_${step.type}`](step, seg);
-      this.dirty = true;
-      if (r && seg.graded) {
-        total.total += r.total;
-        total.right += r.right;
-        total.misses.push(...r.misses);
+      this.#setBack(k > 0 || i > 0);
+      const r = await this.#scoped(() => this[`step_${step.type}`](step, seg));
+      if (r === BACK) {
+        if (k === 0) return BACK;
+        k--;
+        continue;
       }
+      this.dirty = true;
+      // A question answered again after going back keeps its first score.
+      if (run.results[k] === undefined) run.results[k] = r || null;
+      k++;
     }
     this.kb.clearMarks();
+    // A segment finished earlier (even in a past visit) keeps its score.
+    const done = this.segResults[i];
+    if (done) return { misses: [], ...done, stars: starsFor(done.acc) };
+    const total = { total: 0, right: 0, misses: [] };
+    for (const r of run.results) {
+      if (!r || !seg.graded) continue;
+      total.total += r.total;
+      total.right += r.right;
+      total.misses.push(...r.misses);
+    }
     total.acc = total.total ? total.right / total.total : 1;
     total.stars = starsFor(total.acc);
     return total;
@@ -209,7 +279,8 @@ export class LessonRunner {
     const replay = this.stage.querySelector('[data-act="replay"]');
     if (replay) replay.onclick = () => this.#demo(c.song, { bpm: c.bpm || 100 });
     this.#showResultTop();
-    await this.#click(this.stage.querySelector('[data-act="next"]'), true, false);
+    this.#setBack(true);
+    return this.#scoped(() => this.#click(this.stage.querySelector('[data-act="next"]'), true, false));
   }
 
   async #finish() {
