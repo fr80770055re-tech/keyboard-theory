@@ -567,6 +567,11 @@ body.in-lesson .prompt .big { font-size: 3.2rem; }
 .guide-sec { padding: 22px 0; border-top: 1px solid var(--line); }
 .guide-sec h2 { font-size: 1.2rem; }
 .guide-drills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+/* Chord charts in a guide: small charts side by side, two across on a phone. */
+.guide-figs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 10px; margin: 10px 0 12px; }
+.guide-figs figure { margin: 0; text-align: center; }
+.guide-figs .fb-wrap { margin: 0; }
+.guide-figs figcaption { font-size: .8125rem; color: var(--muted); line-height: 1.4; }
 .plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
 .plan-list li { border-left: 3px solid var(--accent); padding: 2px 0 2px 16px; }
 .plan-list h3 { margin-bottom: .2em; }

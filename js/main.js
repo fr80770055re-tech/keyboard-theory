@@ -9,6 +9,7 @@ import { CONCEPTS, reviewSteps } from './lessons/concepts.js';
 import { DRILLS, findDrill } from './lessons/drills.js';
 import { GUIDES } from './lessons/guides.js';
 import { icon } from './icons.js';
+import { drawFretboard } from './fretboard.js';
 
 const $ = (sel) => document.querySelector(sel);
 const view = $('#view');
@@ -373,13 +374,13 @@ function lessonsHtml() {
 }
 
 // Tap-to-answer theory practice: no keyboard needed, so it leads on phones.
-const GUIDE_FOR = { 吉他指板: 'fretboard', 吉他和弦: 'chords' };
+const GUIDE_FOR = { 吉他指板: ['fretboard'], 吉他和弦: ['chords', 'caged'] };
 function drillsHtml() {
   const groups = [...new Set(DRILLS.map((d) => d.group))];
   return `<section class="panel drills" id="drills" aria-labelledby="drills-title">
     <div class="row"><h2 id="drills-title">樂理練習</h2><span class="tag">不用琴鍵 · 手機直式可用</span></div>
     <p class="muted drills-lead">每輪約 3–4 分鐘，看譜或聽完後點選答案。答錯的會排進今日複習。<span class="phone-only">彈奏的課程需要琴鍵：接 MIDI 鍵盤、用電腦，或把手機橫放點畫面上的琴鍵。</span></p>
-    ${groups.map((g) => `<h3 class="drill-group">${g}</h3>${GUIDE_FOR[g] ? `<button class="btn btn-ghost guide-link" data-guide="${GUIDE_FOR[g]}">怎麼練才記得住？看${GUIDES[GUIDE_FOR[g]].title}${icon.next()}</button>` : ''}
+    ${groups.map((g) => `<h3 class="drill-group">${g}</h3>${(GUIDE_FOR[g] || []).map((id) => `<button class="btn btn-ghost guide-link" data-guide="${id}">${GUIDES[id].link || `怎麼練才記得住？看${GUIDES[id].title}`}${icon.next()}</button>`).join('')}
       <ul class="drill-list">${DRILLS.filter((d) => d.group === g).map((d) => `<li><button class="drill" data-drill="${d.id}">
         <b>${d.title}</b><span>${d.desc}</span><small>約 ${d.minutes} 分鐘${d.ear ? ' · 需要聲音' : ''}</small>
       </button></li>`).join('')}</ul>`).join('')}
@@ -446,13 +447,15 @@ function showGuide(id) {
   setLessonMode(false);
   setKeyboardVisible(false);
   const back = () => showGuide(id);
+  // Chord charts and fretboard figures: { caption, fig } with fig = drawFretboard options.
+  const figsHtml = (figs, i) => (figs?.length ? `<div class="guide-figs">${figs.map((f, k) => `<figure><div class="fb-wrap" data-gfig="${i}-${k}"></div><figcaption>${f.caption}</figcaption></figure>`).join('')}</div>` : '');
   const drillBtns = (ids) => (ids.length ? `<div class="guide-drills">${ids.map((d) => `<button class="btn" data-drill="${d}">${findDrill(d).title}${icon.next()}</button>`).join('')}</div>` : '');
   view.innerHTML = `<article class="guide">
     <div class="lesson-head"><button class="btn btn-ghost btn-icon-text" data-act="home">${icon.back()}回首頁</button></div>
     <div class="staff-rule" aria-hidden="true"></div>
     <h1>${g.title}</h1>
     <p class="lead">${g.lead}</p>
-    ${g.sections.map((sec) => `<section class="guide-sec"><h2>${sec.title}</h2><div class="explain-body">${sec.body}</div>${drillBtns(sec.drills)}</section>`).join('')}
+    ${g.sections.map((sec, i) => `<section class="guide-sec"><h2>${sec.title}</h2><div class="explain-body">${sec.body}</div>${figsHtml(sec.figures, i)}${drillBtns(sec.drills)}</section>`).join('')}
     <section class="guide-sec guide-plan">
       <h2>${g.plan.title}</h2>
       <p class="muted">${g.plan.note}</p>
@@ -464,6 +467,10 @@ function showGuide(id) {
       <ul>${g.sources.map((src) => `<li><a href="${src.url}" target="_blank" rel="noopener">${src.title}</a><span class="muted small">${src.note}</span></li>`).join('')}</ul>
     </section>
   </article>`;
+  view.querySelectorAll('[data-gfig]').forEach((el) => {
+    const [i, k] = el.dataset.gfig.split('-').map(Number);
+    drawFretboard(el, g.sections[i].figures[k].fig);
+  });
   view.querySelector('[data-act="home"]').onclick = () => { showHome(); view.querySelector('#drills')?.scrollIntoView({ block: 'start' }); };
   view.querySelectorAll('[data-drill]').forEach((b) => { b.onclick = () => startDrill(b.dataset.drill, back, '回指引'); });
   view.scrollTo(0, 0);

@@ -242,6 +242,85 @@ function deriveQuestion() {
   };
 }
 
+// ---------- CAGED ----------
+// The five open major chords, each moved up the neck as one block. pc = the open
+// chord's root; roots = the strings its root falls on (low to high).
+export const CAGED = {
+  C: { pc: 0, frets: [null, 3, 2, 0, 1, 0], roots: [5, 2] },
+  A: { pc: 9, frets: [null, 0, 2, 2, 2, 0], roots: [5, 3] },
+  G: { pc: 7, frets: [3, 2, 0, 0, 0, 3], roots: [6, 3, 1] },
+  E: { pc: 4, frets: [0, 2, 2, 1, 0, 0], roots: [6, 4, 1] },
+  D: { pc: 2, frets: [null, null, 0, 2, 3, 2], roots: [4, 2] },
+};
+export const CAGED_ORDER = ['C', 'A', 'G', 'E', 'D']; // going up the neck
+const mod12 = (x) => ((x % 12) + 12) % 12;
+// How many frets the open shape moves up to play a chord on `root`.
+export const cagedShift = (shape, root) => mod12(root - CAGED[shape].pc);
+export const cagedFrets = (shape, root, shift = cagedShift(shape, root)) => CAGED[shape].frets.map((f) => (f === null ? null : f + shift));
+// Chord-chart figure of one CAGED shape: open shapes from the nut, moved ones in
+// a five-fret window starting at the fret the open strings moved to.
+export function cagedFigure(shape, root, { roles = true, shift } = {}) {
+  const b = shift ?? cagedShift(shape, root);
+  return {
+    frets: b ? 5 : 4, from: b ? b - 1 : 0, vertical: true,
+    marks: figure(cagedFrets(shape, root, b), root, { roles }),
+    label: `${ROOT_NAME[root]} 和弦的 ${shape} 型`,
+  };
+}
+const rootFret = (shape, b) => CAGED[shape].frets[6 - CAGED[shape].roots[0]] + b;
+
+function cagedShapeQuestion() {
+  const shape = pick(CAGED_ORDER);
+  const root = pick([...Array(12).keys()]);
+  const b = cagedShift(shape, root);
+  if (b > 9) return cagedShapeQuestion();
+  return {
+    key: `cs${shape}${root}`,
+    prompt: `這是 ${ROOT_NAME[root]} 和弦。用的是 CAGED 的哪一個指形？`,
+    fretboard: cagedFigure(shape, root),
+    options: CAGED_ORDER, answer: CAGED_ORDER.indexOf(shape),
+    hint: '看根音 R 落在哪幾條弦，再把整個指形想像成往下移到琴枕的開放和弦。',
+    explain: `${shape} 型，根音在第 ${CAGED[shape].roots.join('、')} 弦。${b ? `整個指形往下移 ${b} 格回到琴枕，就是開放的 ${shape} 和弦。` : `這就是開放的 ${shape} 和弦。`}`,
+  };
+}
+
+function cagedShiftQuestion() {
+  const shape = pick(CAGED_ORDER);
+  let root; let b;
+  do { root = pick([...Array(12).keys()]); b = cagedShift(shape, root); } while (b < 1 || b > 9);
+  const near = shuffle([b - 2, b - 1, b + 1, b + 2, b + 3].filter((n) => n >= 0 && n <= 11)).slice(0, 3);
+  const nums = shuffle([b, ...near]);
+  return {
+    key: `sh${shape}${root}`,
+    prompt: `要用 ${shape} 型彈 ${ROOT_NAME[root]} 和弦，整個開放 ${shape} 指形要往上移幾格？`,
+    options: nums.map((n) => `${n} 格`), answer: nums.indexOf(b),
+    hint: `開放 ${shape} 和弦的根音是 ${shape}；從 ${shape} 往上數到 ${ROOT_NAME[root]} 是幾個半音，就移幾格。`,
+    explain: `${shape} 到 ${ROOT_NAME[root]} 是 ${b} 個半音，所以往上移 ${b} 格：根音在第 ${CAGED[shape].roots[0]} 弦第 ${rootFret(shape, b)} 格。`,
+  };
+}
+
+function cagedOrderQuestion() {
+  const up = Math.random() < 0.5;
+  let shape; let root; let b; let next; let nb;
+  do {
+    shape = pick(CAGED_ORDER);
+    root = pick([...Array(12).keys()]);
+    b = cagedShift(shape, root);
+    next = CAGED_ORDER[(CAGED_ORDER.indexOf(shape) + (up ? 1 : 4)) % 5];
+    nb = cagedShift(next, root);
+    if (up && nb <= b) nb += 12;
+  } while (b > 9 || (!up && nb >= b));
+  return {
+    key: `or${shape}${root}${up}`,
+    prompt: `${ROOT_NAME[root]} 和弦的 ${shape} 型（下圖）。往${up ? '高' : '低'}把位，接著的是哪一型？`,
+    fretboard: cagedFigure(shape, root),
+    options: CAGED_ORDER, answer: CAGED_ORDER.indexOf(next),
+    hint: '往高把位的順序是 C → A → G → E → D，然後回到 C；往低就倒過來。',
+    explain: `往高是 C → A → G → E → D → C，往低倒過來。${shape} 往${up ? '高' : '低'}接著的是 ${next}：${ROOT_NAME[root]} 的 ${next} 型從第 ${nb} 格開始${nb ? '' : '（開放和弦）'}，兩個指形共用根音。`,
+  };
+}
+const cagedQuestion = () => pick([cagedShapeQuestion, cagedShiftQuestion, cagedOrderQuestion])();
+
 // ---------- drills ----------
 
 const unique = (make, k) => {
@@ -260,6 +339,7 @@ export const GUITAR_CHORD_DRILLS = [
   { id: 'gch-role', group: '吉他和弦', title: '指形裡的 R、3、5', desc: '每根手指按的是和弦的第幾音', minutes: 4, steps: [choiceRound('gchord-role', '吉他和弦：組成音', roleQuestion, 8)] },
   { id: 'gch-barre', group: '吉他和弦', title: '推算橫按位置', desc: 'E 型、A 型：根音在哪一格', minutes: 3, speed: true, steps: [tapRound('gchord-barre', '吉他和弦：找橫按位置', barreQuestion, 8, '點指板作答。根音在哪一格，食指就橫按在哪一格。')] },
   { id: 'gch-name', group: '吉他和弦', title: '看指形說和弦', desc: '可移動指形在任何位置', minutes: 4, steps: [choiceRound('gchord-barre', '吉他和弦：看指形', barreNameQuestion, 8)] },
+  { id: 'gch-caged', group: '吉他和弦', title: 'CAGED 五種指形', desc: '認指形、往上移幾格、上下相接的順序', minutes: 4, steps: [choiceRound('gchord-caged', '吉他和弦：CAGED', cagedQuestion, 8)] },
   { id: 'gch-derive', group: '吉他和弦', title: '一個音改變和弦', desc: '大→小、大→7、大→maj7、小→m7', minutes: 4, steps: [tapRound('gchord-derive', '吉他和弦：推算指形', deriveQuestion, 6, '指板上標的是原本的和弦（R 是根音）。只要移動一個音：點出它的新位置。')] },
 ];
 
@@ -267,5 +347,6 @@ Object.assign(CONCEPTS, {
   'gchord-open': { name: '吉他開放和弦', review: () => [choiceRound('gchord-open', '複習：開放和弦', openNameQuestion, 3)] },
   'gchord-role': { name: '和弦指形的組成音', review: () => [choiceRound('gchord-role', '複習：指形組成音', roleQuestion, 3)] },
   'gchord-barre': { name: '吉他橫按和弦位置', review: () => [tapRound('gchord-barre', '複習：橫按位置', barreQuestion, 3)] },
+  'gchord-caged': { name: 'CAGED 指形', review: () => [choiceRound('gchord-caged', '複習：CAGED', cagedQuestion, 3)] },
   'gchord-derive': { name: '推算和弦指形', review: () => [tapRound('gchord-derive', '複習：推算指形', deriveQuestion, 2)] },
 });

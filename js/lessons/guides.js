@@ -2,6 +2,8 @@
 // each step linked to the drills that practise it. Sources are listed at the end
 // of each guide; nothing here is quoted from them.
 
+import { CAGED, CAGED_ORDER, cagedFigure, cagedShift } from './guitar-chords.js';
+
 export const GUIDES = {
   fretboard: {
     id: 'fretboard',
@@ -121,7 +123,7 @@ export const GUIDES = {
       },
       {
         title: '6. 下一步：CAGED',
-        body: `<p>開放的 C、A、G、E、D 五個指形都能移動，而且在指板上依序首尾相接：同一個和弦在整個指板上有五種按法。學會 E 型、A 型之後，再補上 C、G、D 型，就能在任何把位找到任何和弦，也能看出音階與和弦的關係。</p>`,
+        body: `<p>開放的 C、A、G、E、D 五個指形都能移動，而且在指板上依序首尾相接：同一個和弦在整個指板上有五種按法。學會 E 型、A 型之後，再補上 C、G、D 型，就能在任何把位找到任何和弦，也能看出音階與和弦的關係。詳細說明與圖解見〈CAGED 系統詳解〉。</p>`,
         drills: [],
       },
     ],
@@ -140,6 +142,103 @@ export const GUIDES = {
       { title: 'Guitar Noise：Movable Chord Shapes', url: 'https://guitarnoise.substack.com/p/movable-chord-shapes', note: '可移動指形的名字跟著根音走' },
       { title: 'FaChords：Guitar Chord Construction', url: 'https://www.fachords.com/guitar-music-theory', note: '和弦由根音、三度、五度與七度構成，大小三和弦只差三度' },
       { title: 'Premier Guitar：The Guitarist’s Guide to the CAGED System', url: 'https://www.premierguitar.com/the-guitarists-guide-to-the-caged-system', note: '五種開放指形在指板上依序相連' },
+    ],
+  },
+  caged: {
+    id: 'caged',
+    title: 'CAGED 系統詳解',
+    link: '深入了解：CAGED 系統詳解',
+    lead: 'CAGED 是吉他手用來「看懂整個指板」的地圖：只用五個最早學會的開放和弦 C、A、G、E、D，把它們當成可以整塊移動的指形，就能在指板上任何位置找到任何和弦，並把和弦、音階和即興串在一起。下面從原理、順序到實際用法一步步說明，每張圖的 R 是根音，3、5 是三度、五度，× 不彈，○ 是空弦。',
+    sections: [
+      {
+        title: '1. 名字的由來與核心想法',
+        body: `<p>CAGED 就是五個開放大三和弦的名字：<b>C、A、G、E、D</b>。核心想法只有兩點：</p>
+          <ul><li><b>每個開放指形都能整塊往上移</b>：把琴枕想成食指（或移調夾），指形裡的相對位置不變，和弦名字跟著根音改變。</li>
+          <li><b>同一個和弦在指板上有五種按法</b>，而且依 C → A → G → E → D 的順序首尾相接，鋪滿整個指板。</li></ul>
+          <p>所以 CAGED 不是要多背五套東西，而是把你已經會的五個和弦，變成整個指板的座標。</p>`,
+        drills: [],
+      },
+      {
+        title: '2. 五個開放指形與根音位置',
+        body: `<p>學 CAGED 最重要的是記住每個指形的<b>根音在哪幾條弦</b>，因為移動之後，就是靠根音來定位：</p>
+          <ul><li><b>C 型</b>：根音在第 5、2 弦</li><li><b>A 型</b>：根音在第 5、3 弦</li>
+          <li><b>G 型</b>：根音在第 6、3、1 弦</li><li><b>E 型</b>：根音在第 6、4、1 弦</li><li><b>D 型</b>：根音在第 4、2 弦</li></ul>`,
+        figures: CAGED_ORDER.map((s) => ({ caption: `${s} 型：根音在第 ${CAGED[s].roots.join('、')} 弦`, fig: cagedFigure(s, CAGED[s].pc) })),
+        drills: ['gch-open', 'gch-role'],
+      },
+      {
+        title: '3. 把指形往上移：移幾格？',
+        body: `<p>移動的格數＝<b>原本的根音到新根音的半音數</b>。例如要用 A 型彈 C：A 到 C 是 3 個半音，整個 A 指形往上 3 格，原本的空弦變成食指橫按第 3 格。</p>
+          <p>同樣地，E 型往上 3 格是 G（E→G 三個半音）。你熟悉的 E 型、A 型橫按和弦，其實就是 CAGED 裡的兩個指形。</p>`,
+        figures: [
+          { caption: '開放 A 和弦（A 型）', fig: cagedFigure('A', 9) },
+          { caption: 'A 型往上 3 格＝C', fig: cagedFigure('A', 0) },
+          { caption: '開放 E 和弦（E 型）', fig: cagedFigure('E', 4) },
+          { caption: 'E 型往上 3 格＝G', fig: cagedFigure('E', 7) },
+        ],
+        drills: ['gch-barre'],
+      },
+      {
+        title: '4. 同一個和弦的五個位置：以 C 為例',
+        body: `<p>C 和弦用五個指形，從琴枕一路往上：開放的 <b>C 型</b> → 第 3 格的 <b>A 型</b> → 第 5 格的 <b>G 型</b> → 第 8 格的 <b>E 型</b> → 第 10 格的 <b>D 型</b>，再往上就回到第 12 格的 C 型（高八度）。</p>
+          <p>注意相鄰兩個指形<b>共用根音</b>：C 型和 A 型都在第 5 弦第 3 格有 C；A 型和 G 型在第 3 弦第 5 格共用 C；G 型和 E 型在第 6、1 弦第 8 格共用 C。共用的根音就是兩個指形之間的「接縫」。</p>`,
+        figures: CAGED_ORDER.map((s) => ({ caption: `${s} 型：${cagedShift(s, 0) ? `從第 ${cagedShift(s, 0)} 格起` : '開放和弦'}`, fig: cagedFigure(s, 0) })),
+        drills: [],
+      },
+      {
+        title: '5. 順序永遠是 C-A-G-E-D 循環',
+        body: `<p>不管什麼和弦，往高把位走的順序都是 <b>C → A → G → E → D → C…</b>，往低就倒過來。不同的和弦只是起點不同：</p>
+          <ul><li>C 和弦從 C 型開始：C A G E D</li>
+          <li>G 和弦從開放的 G 型開始：<b>G E D C A</b>（G 型開放、E 型第 3 格、D 型第 5 格、C 型第 7 格、A 型第 10 格）</li>
+          <li>A 和弦從開放的 A 型開始：A G E D C</li></ul>
+          <p>所以只要知道一個位置，就能推出往上、往下的其他四個。</p>`,
+        figures: ['G', 'E', 'D', 'C', 'A'].map((s) => ({ caption: `G 和弦的 ${s} 型：${cagedShift(s, 7) ? `第 ${cagedShift(s, 7)} 格起` : '開放'}`, fig: cagedFigure(s, 7) })),
+        drills: ['gch-caged'],
+      },
+      {
+        title: '6. 任何和弦：從根音弦開始推',
+        body: `<ol><li>在第 6 弦找到根音 → 從這格往上是 <b>E 型</b>；G 型的第 6 弦根音也在這格，整個 G 型在它下方。</li>
+          <li>在第 5 弦找到根音 → 從這格往上是 <b>A 型</b>；C 型的第 5 弦根音也在這格，整個 C 型在它下方。</li>
+          <li>在第 4 弦找到根音 → 從這格往上是 <b>D 型</b>。</li>
+          <li>再用順序補齊：E 型的上面是 D 型、下面是 G 型；A 型的上面是 G 型、下面是 C 型。</li></ol>
+          <p>這就是為什麼第 6、5 弦的音名要先記熟（見〈指板記憶指引〉）：CAGED 的定位全靠根音。</p>`,
+        drills: ['gtr-root', 'gch-name'],
+      },
+      {
+        title: '7. 小三和弦與七和弦也適用',
+        body: `<p>CAGED 講的是「位置」，不只是大三和弦。把每個指形裡的 <b>3 降半音</b>就是小三和弦的指形（Am、Em、Dm 最常用，C、G 型的小和弦較難按，常只按其中幾條弦）；把一個根音降全音就是屬七。規則和〈和弦指形指引〉的「只動一個音」完全相同，只是套用在五個位置上。</p>`,
+        drills: ['gch-derive'],
+      },
+      {
+        title: '8. 和音階、即興串起來',
+        body: `<p>每個 CAGED 指形周圍，都有一個對應的音階把位。五聲音階的五個把位，正好可以對到五個和弦指形：例如 A 小調五聲最常用的第一把位（第 5 格），就圍繞著第 5 格 E 型的 Am 和弦。</p>
+          <p>即興時看著當下和弦的指形，就知道哪些音是和弦音（R、3、5）：把句子停在這些音上，旋律就會和和弦貼合。這也是 CAGED 最大的用處：<b>和弦、音階、即興用同一張地圖</b>。</p>`,
+        drills: [],
+      },
+      {
+        title: '9. 實際按的時候',
+        body: `<ul><li><b>不必按完整指形</b>。完整的 G 型、C 型橫按很難按，實務上多半只按其中三、四條弦，或只取高音三條弦的三和弦。CAGED 是地圖，不是每次都要按滿六條弦。</li>
+          <li>先從已經會的 <b>E 型、A 型</b>開始，再加入 <b>D 型</b>，最後是 C 型和 G 型。</li>
+          <li>也有老師認為不一定要用 CAGED 學指板，它是好用的工具之一，不是唯一的方法；搭配音名記憶一起練效果最好。</li></ul>`,
+        drills: [],
+      },
+    ],
+    plan: {
+      title: '四週練法',
+      note: '每天 10 分鐘：手機上的練習負責「看懂、推得出來」，再拿吉他實際把五個位置按一遍、彈一遍。',
+      weeks: [
+        { title: '第 1 週：五個開放指形與根音', body: '確認五個開放和弦都會按，說得出每個指形的根音在哪幾條弦。', drills: ['gch-open', 'gch-role'] },
+        { title: '第 2 週：移動指形', body: 'E 型、A 型橫按，練習「要移幾格」：找根音、算半音。', drills: ['gtr-root', 'gch-barre', 'gch-caged'] },
+        { title: '第 3 週：一個和弦走遍五個位置', body: '每天選一個和弦（從 C、G、A 開始），從低到高按出五個位置，說出每個位置的指形名稱與共用的根音。', drills: ['gch-caged', 'gch-name'] },
+        { title: '第 4 週：換和弦不換把位', body: '選一個把位（例如第 5 格附近），用不同指形彈 I–IV–V（例如 A、D、E），練習不離開這個把位就換和弦。', drills: ['gch-caged', 'gch-derive'] },
+      ],
+    },
+    sources: [
+      { title: 'Premier Guitar：The Guitarist’s Guide to the CAGED System', url: 'https://www.premierguitar.com/the-guitarists-guide-to-the-caged-system', note: '五個開放指形、根音位置與在指板上的連接' },
+      { title: 'TrueFire：CAGED System for Guitar', url: 'https://learn.truefire.com/caged-system-for-guitar', note: '指形依固定順序往上下重複；E 型之後是 D、C、A、G' },
+      { title: 'Andy Guitar：The CAGED System Explained', url: 'https://www.andyguitar.co.uk/lessons/06-the-caged-system-explained', note: '以 C 與 G 和弦說明五個位置' },
+      { title: 'Songnotes：CAGED Chord Shapes, Explained', url: 'https://songnotes.net/lessons/385', note: '每個大和弦都能用五種指形彈；小和弦同理' },
+      { title: 'JustinGuitar：The CAGED System – E Shape', url: 'https://justinguitar.com/guitar-lessons/the-caged-system-e-shape-tb-032', note: '不用空弦的指形都可移動；E 型根音在第 6 弦' },
     ],
   },
 };
