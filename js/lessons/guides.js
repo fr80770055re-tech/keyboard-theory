@@ -79,4 +79,67 @@ export const GUIDES = {
       { title: 'Carter & Grahn（2016），Frontiers in Psychology 7:1251', url: 'https://www.frontiersin.org/articles/10.3389/fpsyg.2016.01251/full', note: '交錯與分開練習對演奏表現的影響（10 位單簧管演奏者的小型研究）' },
     ],
   },
+  chords: {
+    id: 'chords',
+    title: '和弦指形指引',
+    lead: '吉他和弦表有上百個指形，但背後只有一個道理：和弦是「根音＋幾個音程」，指形只是這些音程落在弦上的位置。看懂一個指形裡每根手指是 R、3 還是 5，就能自己推出其他和弦，不用死背。',
+    sections: [
+      {
+        title: '1. 和弦＝根音加上音程',
+        body: `<ul><li><b>大三和弦</b>：R、3、5（根音往上 4 個半音、再 3 個半音）。</li>
+          <li><b>小三和弦</b>：R、♭3、5。和大三和弦只差一個音：三度低了半音。</li>
+          <li><b>屬七</b>（7）：大三和弦加 ♭7；<b>小七</b>（m7）：小三和弦加 ♭7；<b>大七</b>（maj7）：大三和弦加 7。</li></ul>
+          <p>五度在大、小三和弦裡都一樣，決定明亮或陰暗的是三度。</p>`,
+        drills: [],
+      },
+      {
+        title: '2. 開放和弦：先認，再看懂',
+        body: `<p>先熟悉最常用的開放和弦：<b>C、A、G、E、D</b>，加上 Am、Em、Dm 與幾個七和弦。看指形時先找<b>最低音</b>（× 的弦不彈），它通常就是根音；再看三度在哪一條弦。</p>`,
+        drills: ['gch-open'],
+      },
+      {
+        title: '3. 每根手指都有名字：R、3、5',
+        body: `<p>同一個和弦裡，根音常常出現兩三次，五度也常重複，三度通常只有一個。練習時把每個按的位置說成「R、5、R、3、5、R」，指形就從一堆點變成有意義的結構。</p>
+          <p>數法：從根音往上，3 個半音是 ♭3、4 個是 3、7 個是 5、10 個是 ♭7、11 個是 7。</p>`,
+        drills: ['gch-role'],
+      },
+      {
+        title: '4. 可移動指形：E 型與 A 型',
+        body: `<p>不用空弦的指形可以整個往上移。把開放 E 和弦換指法、用食指當「移動的琴枕」，就是 <b>E 型橫按</b>，根音在第 6 弦；開放 A 和弦變成 <b>A 型橫按</b>，根音在第 5 弦。</p>
+          <p>和弦的名字＝根音的名字：要彈 G，在第 6 弦找到 G（第 3 格），食指橫按第 3 格、按 E 型；或在第 5 弦找到 G（第 10 格），按 A 型。所以先把第 6、5 弦的音名記熟（見指板記憶指引），橫按和弦就全都會了。</p>
+          <p>多數老師建議先練 E 型再練 A 型；A 型的第 1 弦是五度，按不清楚時可以不彈。</p>`,
+        drills: ['gch-barre', 'gch-name'],
+      },
+      {
+        title: '5. 推算：只動一個音',
+        body: `<ul><li><b>大 → 小</b>：把三度降半音（E 型在第 3 弦、A 型在第 2 弦）。</li>
+          <li><b>大 → 7</b>：把一個高八度的根音降全音，成為 ♭7（E 型在第 4 弦、A 型在第 3 弦）。</li>
+          <li><b>大 → maj7</b>：把那個根音只降半音，成為 7。</li>
+          <li><b>小 → m7</b>：同樣把根音降全音。</li></ul>
+          <p>其他手指不動，所以換和弦時手的位置也不用變。這也是為什麼記住 R 和 3 在哪條弦最重要。</p>`,
+        drills: ['gch-derive'],
+      },
+      {
+        title: '6. 下一步：CAGED',
+        body: `<p>開放的 C、A、G、E、D 五個指形都能移動，而且在指板上依序首尾相接：同一個和弦在整個指板上有五種按法。學會 E 型、A 型之後，再補上 C、G、D 型，就能在任何把位找到任何和弦，也能看出音階與和弦的關係。</p>`,
+        drills: [],
+      },
+    ],
+    plan: {
+      title: '三週練法',
+      note: '每天 5 到 10 分鐘的樂理練習，加上拿起吉他實際按。手機上答題訓練的是「推得出來」，手指要真的按過才記得住。',
+      weeks: [
+        { title: '第 1 週：開放和弦與組成音', body: '認出常用開放和弦，並說出每根手指按的是 R、3 還是 5。', drills: ['gch-open', 'gch-role'] },
+        { title: '第 2 週：E 型與 A 型', body: '先複習第 6、5 弦的音名，再練找橫按位置與看指形說和弦。', drills: ['gtr-root', 'gch-barre', 'gch-name'] },
+        { title: '第 3 週：推算', body: '從大三和弦出發，推出小、7、maj7、m7；混著前兩週的練習一起做。', drills: ['gch-derive', 'gch-role', 'gch-barre'] },
+      ],
+    },
+    sources: [
+      { title: 'JustinGuitar：The CAGED System – E Shape', url: 'https://justinguitar.com/guitar-lessons/the-caged-system-e-shape-tb-032', note: '不用空弦的指形都能移動；E 型橫按的根音在第 6 弦' },
+      { title: 'Guitar World：How to play barre chords', url: 'https://www.guitarworld.com/lessons/how-to-play-barre-chords', note: 'E 型與 A 型橫按的大、小和弦指形' },
+      { title: 'Guitar Noise：Movable Chord Shapes', url: 'https://guitarnoise.substack.com/p/movable-chord-shapes', note: '可移動指形的名字跟著根音走' },
+      { title: 'FaChords：Guitar Chord Construction', url: 'https://www.fachords.com/guitar-music-theory', note: '和弦由根音、三度、五度與七度構成，大小三和弦只差三度' },
+      { title: 'Premier Guitar：The Guitarist’s Guide to the CAGED System', url: 'https://www.premierguitar.com/the-guitarists-guide-to-the-caged-system', note: '五種開放指形在指板上依序相連' },
+    ],
+  },
 };

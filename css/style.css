@@ -312,6 +312,10 @@ kbd {
 .echo-dots { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; padding: 0; list-style: none; }
 .echo-dots li { width: 26px; height: 26px; border-radius: 50%; border: 2px dashed var(--line-strong); transition: background-color .15s, border-color .15s; }
 .echo-dots li.done { background: var(--accent); border: 2px solid var(--accent); }
+/* Compose: the tune grows chip by chip; dotted slots show room left. */
+.compose-bar { flex-wrap: wrap; row-gap: 6px; margin: 12px 0 6px; }
+.compose-slot b { color: var(--muted); }
+.compose-slot.need { border-style: dashed; border-color: var(--line-strong); }
 .echo-turn { display: inline-block; margin-left: .75em; font-size: .8em; font-weight: 600; color: var(--muted); }
 .echo-turn.go { color: var(--accent); }
 
@@ -598,6 +602,15 @@ body.in-lesson .prompt .big { font-size: 3.2rem; }
 .fretboard .fb-bad circle { fill: var(--bad); stroke: var(--bad); }
 .fretboard .fb-soft circle { fill: transparent; stroke: var(--accent); stroke-dasharray: 3 3; }
 .fretboard .fb-dot circle { fill: var(--text); stroke: none; }
+/* Chord diagrams: root, other chord tones, open (○) and unplayed (×) strings. */
+.fretboard .fb-root circle { fill: var(--accent); stroke: var(--accent); }
+.fretboard .fb-root text { fill: var(--on-accent); }
+.fretboard .fb-tone circle { fill: var(--text); stroke: var(--text); }
+.fretboard .fb-tone text { fill: var(--surface); }
+.fretboard .fb-open circle { fill: var(--surface); stroke: var(--text); }
+.fretboard .fb-open text { fill: var(--text); }
+.fretboard .fb-mute circle { fill: none; stroke: none; }
+.fretboard .fb-mute text { fill: var(--muted); font-size: 16px; }
 
 /* Without the keyboard below, a lesson's content starts at the top. */
 body.in-lesson.kb-off .stage { margin-top: 0; }

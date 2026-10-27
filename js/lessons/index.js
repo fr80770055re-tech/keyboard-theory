@@ -20,6 +20,7 @@ import a8 from './a8.js';
 import a9 from './a9.js';
 import a10 from './a10.js';
 import a11 from './a11.js';
+import { addCreative } from './create.js';
 
 export const TRACKS = {
   beginner: {
@@ -52,6 +53,9 @@ export const TRACKS = {
     ],
   },
 };
+
+// Improvise / compose after each piece (see create.js).
+addCreative(Object.values(TRACKS).flatMap((t) => t.lessons));
 
 export const findLesson = (id) =>
   Object.values(TRACKS).flatMap((t) => t.lessons).find((l) => l.id === id);

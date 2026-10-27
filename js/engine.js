@@ -1129,6 +1129,133 @@ export class LessonRunner {
   }
 
   // Play a melody in wait mode: the music waits until the right key is pressed.
+  // Free improvisation over a looping backing, on a set of notes lit on the keys
+  // (step.scale: pitch classes). Nothing is wrong here: it only counts what was
+  // played and how much stayed inside the set. Not graded.
+  async step_improv(step) {
+    const allowed = new Set(step.scale.map(pc));
+    this.stage.innerHTML = `
+      ${this.#head(step, '即興')}
+      <div class="explain-body">${step.body}</div>
+      <p class="prompt" data-el="count">按「開始伴奏」，然後隨意彈亮起的鍵。</p>
+      <p class="feedback"></p>
+      <div class="footer-actions">
+        <button class="btn" data-act="loop">${icon.play()}開始伴奏</button>
+        <span class="spacer"></span>
+        <button class="btn btn-primary" data-act="next">彈夠了，繼續${icon.next()}</button>
+      </div>`;
+    for (let n = 48; n <= 72; n++) if (allowed.has(pc(n))) this.kb.mark(n, 'soft');
+    this.#announce(`${step.title}。${step.body}`);
+    const loopBtn = this.stage.querySelector('[data-act="loop"]');
+    const countEl = this.stage.querySelector('[data-el="count"]');
+    let loop = null;
+    const stop = () => {
+      loop?.abort();
+      loop = null;
+      loopBtn.innerHTML = `${icon.play()}開始伴奏`;
+    };
+    loopBtn.onclick = async () => {
+      if (loop) return stop();
+      const mine = new AbortController();
+      loop = mine;
+      loopBtn.textContent = '停止伴奏';
+      const signal = anySignal(this.signal, mine.signal);
+      // Loop the backing until stopped (or ten times round, a few minutes).
+      for (let k = 0; k < 10 && !signal.aborted; k++) {
+        await this.piano.playSequence(step.backing, { bpm: step.bpm || 90, signal, show: false });
+      }
+      if (loop === mine) stop();
+    };
+    let total = 0;
+    let inside = 0;
+    const onNote = (e) => {
+      const n = e.detail.note;
+      total++;
+      if (allowed.has(pc(n))) inside++;
+      else this.#feedback(`${noteName(n)} 不在這組音裡：聽聽看它比較「緊」的味道，再回到亮起的鍵。`);
+      countEl.textContent = `已經彈了 ${total} 個音`;
+    };
+    this.hub.addEventListener('noteon', onNote, { signal: this.signal });
+    try {
+      await this.#click(this.stage.querySelector('[data-act="next"]'), false);
+    } finally {
+      stop();
+      this.hub.removeEventListener('noteon', onNote);
+    }
+    if (total) {
+      this.#feedback(`彈了 ${total} 個音，${Math.round((inside / total) * 100)}% 在這組音裡。即興沒有標準答案，多彈幾次就會找到自己喜歡的句子。`, 'ok');
+      await this.#pause(1800);
+    }
+    return null;
+  }
+
+  // Make up a short tune from a few given notes (step.notes, MIDI) that ends on
+  // step.end (a pitch class). The tune is shown as it grows and played back;
+  // only length, the notes used and the last note are checked. Not graded.
+  async step_compose(step) {
+    const allowed = new Set(step.notes);
+    const min = step.min || 4;
+    const max = step.max || 8;
+    const endName = noteName(step.end + 60);
+    this.stage.innerHTML = `
+      ${this.#head(step, '創作')}
+      <div class="explain-body">${step.body}</div>
+      <ol class="bar compose-bar" data-el="tune" aria-label="你的旋律"></ol>
+      <p class="feedback"></p>
+      <div class="footer-actions" data-el="edit">
+        <button class="btn" data-act="clear">${icon.replay()}重來</button>
+        <button class="btn" data-act="hear">${icon.play()}聽聽看</button>
+        <span class="spacer"></span>
+        <button class="btn btn-primary" data-act="done" disabled>完成${icon.next()}</button>
+      </div>
+      <div class="footer-actions" data-el="after" hidden><span class="spacer"></span><button class="btn btn-primary" data-act="next">繼續${icon.next()}</button></div>`;
+    for (const n of allowed) this.kb.mark(n, 'soft', letter(n));
+    this.#announce(`${step.title}。${step.body}`);
+    const tuneEl = this.stage.querySelector('[data-el="tune"]');
+    const doneBtn = this.stage.querySelector('[data-act="done"]');
+    const tune = [];
+    const ready = () => tune.length >= min && pc(tune[tune.length - 1]) === step.end;
+    const render = () => {
+      tuneEl.innerHTML = Array.from({ length: max }, (_, k) => (k < tune.length
+        ? `<li class="note-chip done"><b>${noteName(tune[k])}</b></li>`
+        : `<li class="note-chip compose-slot${k < min ? ' need' : ''}"><b>·</b></li>`)).join('');
+      doneBtn.disabled = !ready();
+    };
+    const playTune = () => this.#demo(tune.map((n, k) => ({ n, d: k === tune.length - 1 ? 2 : 1 })), { bpm: step.bpm || 90 });
+    render();
+    const onNote = (e) => {
+      const n = e.detail.note;
+      if (!allowed.has(n)) {
+        this.#feedback(`這次只用亮起的 ${allowed.size} 個鍵。`, 'bad');
+        return;
+      }
+      if (tune.length >= max) {
+        this.#feedback(`已經 ${max} 個音了。按「重來」重新編，或結束在 ${endName} 後按「完成」。`);
+        return;
+      }
+      tune.push(n);
+      render();
+      if (tune.length >= min && !ready()) this.#feedback(`再加一個音，最後落在 ${endName}，聽起來才像「說完了」。`);
+      else if (ready()) this.#feedback(`落在 ${endName} 了，可以按「完成」，也可以繼續加長。`, 'ok');
+      else this.#feedback('');
+    };
+    this.hub.addEventListener('noteon', onNote, { signal: this.signal });
+    this.stage.querySelector('[data-act="clear"]').onclick = () => { tune.length = 0; render(); this.#feedback(''); };
+    this.stage.querySelector('[data-act="hear"]').onclick = () => { if (tune.length) playTune(); };
+    try {
+      await this.#click(doneBtn, false);
+    } finally {
+      this.hub.removeEventListener('noteon', onNote);
+    }
+    this.stage.querySelector('[data-el="edit"]').hidden = true;
+    this.#feedback(`這是你自己編的旋律：${tune.map(noteName).join(' ')}。${step.after || ''}`, 'ok');
+    await playTune();
+    const after = this.stage.querySelector('[data-el="after"]');
+    after.hidden = false;
+    await this.#click(after.querySelector('[data-act="next"]'));
+    return null;
+  }
+
   // Hear a phrase, play it back by ear: no names, no score, and the keys stay
   // still during playback. The phrase's first note is lit as a starting point;
   // two misses on a note light that key. Not graded: the read-along steps after
