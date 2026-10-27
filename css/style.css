@@ -135,7 +135,7 @@ kbd {
 /* ---------- top bar ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 24px;
+  padding: 10px max(24px, env(safe-area-inset-right)) 10px max(24px, env(safe-area-inset-left));
   border-bottom: 1px solid var(--line);
 }
 .brand {
@@ -164,12 +164,15 @@ kbd {
   display: flex; gap: 12px; align-items: center; justify-content: space-between;
 }
 .banner[hidden] { display: none; }
+.banner .row { flex-wrap: nowrap; gap: 0; flex: none; }
+.banner .btn { white-space: nowrap; padding-inline: 8px; }
+@media (max-width: 640px) { .banner { font-size: .9375rem; line-height: 1.5; } }
 
 /* ---------- layout ---------- */
 .view {
   overflow-y: auto;
   scroll-padding-bottom: 24px;
-  padding: 36px max(16px, calc((100% - 960px) / 2)) 40px;
+  padding: 36px max(16px, calc((100% - 960px) / 2), env(safe-area-inset-right)) 40px max(16px, calc((100% - 960px) / 2), env(safe-area-inset-left));
 }
 
 /* ---------- welcome ---------- */
@@ -626,6 +629,43 @@ body.in-lesson.kb-off .stage { margin-top: 0; }
 @media (max-width: 440px) {
   .lesson { flex-wrap: wrap; }
   .lesson-right { width: 100%; justify-content: flex-end; }
+}
+
+/* ---------- phone turned sideways ----------
+   Short and wide: the 25 keys fit without scrolling, so the lesson gives them
+   the full width and squeezes everything above into a couple of lines. */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.in-lesson .topbar { display: none; }
+  body.in-lesson .banner { margin-top: 6px; padding-block: 4px; }
+  body.in-lesson .view {
+    padding: 6px max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+  }
+  body.in-lesson .lesson-head { margin: 0 0 2px -8px; }
+  body.in-lesson .lesson-head .btn { min-height: 32px; padding-block: 2px; }
+  body.in-lesson .lesson-name { font-size: .9375rem; }
+  body.in-lesson .seg-row { display: none; }
+  body.in-lesson .stage { padding-top: 0; }
+  body.in-lesson .stage > h2 { font-size: 1rem; margin-bottom: 0; }
+  body.in-lesson .stage > .sub { display: none; }
+  body.in-lesson .prompt { font-size: 1.2rem; margin: 2px 0 4px; }
+  body.in-lesson .prompt .big { font-size: 2rem; }
+  body.in-lesson .explain-body { font-size: .9375rem; line-height: 1.55; }
+  body.in-lesson .progress-dots { margin: 2px 0 4px; }
+  body.in-lesson .progress-dots li { width: 14px; height: 14px; }
+  body.in-lesson .score { margin: 4px 0 2px; row-gap: 6px; }
+  body.in-lesson .note-chip { padding: 2px; }
+  body.in-lesson .note-chip b { font-size: 1rem; }
+  body.in-lesson .staff { margin: 2px 0; }
+  body.in-lesson .feedback { min-height: 1.4em; margin-top: 2px; }
+  body.in-lesson .stage .footer-actions { margin-top: 4px; padding: 4px 0; }
+  body.in-lesson .kb-meta { display: none; }
+  body.in-lesson .kb-wrap {
+    padding: 2px max(8px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  body.in-lesson .kb-keys, body.in-lesson.step-read .kb-keys { height: clamp(96px, 36dvh, 150px); }
+  body.in-lesson .kb-lane { height: 40px; }
+  body.in-lesson .keyboard { min-width: 0; }
+  body.in-lesson .lane { height: 36px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

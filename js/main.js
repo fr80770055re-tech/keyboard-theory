@@ -110,6 +110,7 @@ function showBanner(text, withCalibrate = false) {
     ${withCalibrate && !runner ? '<button class="btn" data-act="cal">重新校準</button>' : ''}
     <button class="btn btn-ghost" data-act="close" aria-label="關閉提示">${icon.cross()}</button></span>`;
   b.hidden = false;
+  delete b.dataset.kind;
   b.querySelector('[data-act="close"]').onclick = () => { b.hidden = true; };
   const cal = b.querySelector('[data-act="cal"]');
   if (cal) cal.onclick = () => { b.hidden = true; showCalibration(); };
@@ -481,6 +482,28 @@ function startDrill(id, back = showHome, backLabel = '回首頁') {
   launch(new LessonRunner({ root: view, lesson, hub, kb, piano, store, onExit: back }), 0);
 }
 
+// Keyboard lessons on a phone held upright: suggest turning it sideways, where
+// all 25 keys fit. Only a hint (browsers can't reliably lock orientation), it
+// goes away by itself on rotating, and it can be switched off for good.
+const portraitPhone = matchMedia('(orientation: portrait) and (max-width: 640px) and (pointer: coarse)');
+function rotateHint() {
+  if (!portraitPhone.matches || store.settings.rotateHint === false) return;
+  const b = $('#banner');
+  b.innerHTML = `<span>把手機轉成橫向，25 個琴鍵能一次放下，更好按。</span><span class="row">
+    <button class="btn btn-ghost" data-act="never">不再提示</button>
+    <button class="btn btn-ghost" data-act="close" aria-label="關閉提示">${icon.cross()}</button></span>`;
+  b.dataset.kind = 'rotate';
+  b.hidden = false;
+  b.querySelector('[data-act="close"]').onclick = () => { b.hidden = true; };
+  b.querySelector('[data-act="never"]').onclick = () => { store.setSetting('rotateHint', false); b.hidden = true; };
+}
+const dropRotateHint = () => {
+  const b = $('#banner');
+  if (!portraitPhone.matches && b.dataset.kind === 'rotate') b.hidden = true;
+};
+portraitPhone.addEventListener('change', dropRotateHint);
+window.addEventListener('resize', dropRotateHint);
+
 function launch(r, segment) {
   $('#banner').hidden = true;
   setKeyboardVisible(!r.lesson.noKeys);
@@ -491,6 +514,7 @@ function launch(r, segment) {
   runner = r;
   runner.run(segment);
   view.scrollTo(0, 0);
+  if (!r.lesson.noKeys) rotateHint();
 }
 
 // ---------- settings ----------
@@ -501,6 +525,7 @@ let resetArmed = false;
 $('#settings-btn').onclick = () => {
   $('#set-echo').checked = store.settings.echo;
   $('#set-solfege').checked = store.settings.solfege;
+  $('#set-rotate').checked = store.settings.rotateHint !== false;
   $('#set-calibrate').disabled = !hub.deviceName;
   $('#cal-note').textContent = hub.deviceName ? `目前裝置：${hub.deviceName}` : '連接 MIDI 鍵盤後才能校準。';
   resetArmed = false;
@@ -509,6 +534,7 @@ $('#settings-btn').onclick = () => {
   dlg.showModal();
 };
 $('#set-echo').onchange = (e) => store.setSetting('echo', e.target.checked);
+$('#set-rotate').onchange = (e) => store.setSetting('rotateHint', e.target.checked);
 $('#set-solfege').onchange = (e) => { store.setSetting('solfege', e.target.checked); setSolfege(e.target.checked); };
 $('#set-calibrate').onclick = () => {
   dlg.close();
