@@ -308,6 +308,13 @@ kbd {
 .progress-dots li.bad { background: var(--bad); border-color: var(--bad); color: var(--surface); }
 .progress-dots li.cur { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
+/* Echo: one blank bead per note of the phrase, filled as it is played back. */
+.echo-dots { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; padding: 0; list-style: none; }
+.echo-dots li { width: 26px; height: 26px; border-radius: 50%; border: 2px dashed var(--line-strong); transition: background-color .15s, border-color .15s; }
+.echo-dots li.done { background: var(--accent); border: 2px solid var(--accent); }
+.echo-turn { display: inline-block; margin-left: .75em; font-size: .8em; font-weight: 600; color: var(--muted); }
+.echo-turn.go { color: var(--accent); }
+
 /* Melody: bars of note chips, barlines between, chip width follows duration. */
 .score { display: flex; flex-wrap: wrap; row-gap: 14px; margin: 16px 0 6px; }
 .bar { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0 12px; border-left: 1.5px solid var(--line-strong); }
@@ -428,6 +435,8 @@ body.in-lesson.step-read .kb-keys { height: clamp(96px, 16vh, 150px); }
 body.in-lesson.step-read .kb-lane { height: 0; }
 /* On short screens the step's buttons stay reachable at the bottom of the stage. */
 body.in-lesson .stage .footer-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 6px; margin-top: 16px; }
+/* The echo screen is short; a pinned bar would only cover its note beads. */
+body.in-lesson .stage .echo-actions { position: static; }
 /* Keys take what the lesson content leaves, so the score never hides behind them. */
 body.in-lesson .kb-keys { height: clamp(120px, min(30vh, 100dvh - 440px), 280px); }
 body.in-lesson .kb-lane { height: 58px; }
@@ -653,12 +662,16 @@ body.in-lesson.kb-off .stage { margin-top: 0; }
   body.in-lesson .explain-body { font-size: .9375rem; line-height: 1.55; }
   body.in-lesson .progress-dots { margin: 2px 0 4px; }
   body.in-lesson .progress-dots li { width: 14px; height: 14px; }
+  body.in-lesson .stage > .muted { font-size: .875rem; margin: 0 0 2px; }
+  body.in-lesson .echo-dots { gap: 6px; margin: 0 0 2px; }
+  body.in-lesson .echo-dots li { width: 16px; height: 16px; }
   body.in-lesson .score { margin: 4px 0 2px; row-gap: 6px; }
   body.in-lesson .note-chip { padding: 2px; }
   body.in-lesson .note-chip b { font-size: 1rem; }
   body.in-lesson .staff { margin: 2px 0; }
   body.in-lesson .feedback { min-height: 1.4em; margin-top: 2px; }
   body.in-lesson .stage .footer-actions { margin-top: 4px; padding: 4px 0; }
+  body.in-lesson .echo-actions .btn { min-height: 32px; padding-block: 2px; }
   body.in-lesson .kb-meta { display: none; }
   body.in-lesson .kb-wrap {
     padding: 2px max(8px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));

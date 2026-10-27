@@ -218,6 +218,10 @@ export class LessonRunner {
           ];
         }
       }
+      if (seg.kind === 'piece' && !seg.noEcho) {
+        const echo = echoStep(steps);
+        if (echo) steps = [echo, ...steps];
+      }
       run = this.runs[i] = { steps, resolved: [], results: [] };
     }
     const { steps } = run;
@@ -1125,6 +1129,85 @@ export class LessonRunner {
   }
 
   // Play a melody in wait mode: the music waits until the right key is pressed.
+  // Hear a phrase, play it back by ear: no names, no score, and the keys stay
+  // still during playback. The phrase's first note is lit as a starting point;
+  // two misses on a note light that key. Not graded: the read-along steps after
+  // it are. 直接看音名 skips ahead to them.
+  async step_echo(step) {
+    const bass = step.mode === 'bass';
+    const rounds = bass
+      ? step.chords.map((c) => ({ seq: [{ n: c.voicing, d: 2 }], targets: [Math.min(...c.voicing)] }))
+      : step.phrases.map((p) => ({ seq: p, targets: p.map((x) => x.n) }));
+    const results = [];
+    const SKIP = Symbol('skip');
+    for (let r = 0; r < rounds.length; r++) {
+      const { seq, targets } = rounds[r];
+      const ask = bass ? `第 ${r + 1} 個和弦的低音` : `第 ${r + 1} 句（${targets.length} 個音）`;
+      this.stage.innerHTML = `
+        ${this.#head({ kicker: '第 0 遍：先用耳朵學', title: step.title })}
+        ${r === 0 ? `<p class="muted">${bass
+          ? '先不看和弦名稱。每聽一個和弦，找出它最低的那個音，任何八度都可以。第一個低音已經亮起。'
+          : '先不看音名和譜。聽一句，憑耳朵把它彈回來；亮起的鍵是這句的第一個音。這一步不計分。'}</p>` : ''}
+        ${this.#dots(results, r, rounds.length)}
+        <p class="prompt"><span class="prompt-icon">${icon.ear()}</span>${ask}<span class="echo-turn" data-el="turn"></span></p>
+        ${bass ? '' : `<ol class="echo-dots" aria-hidden="true">${targets.map(() => '<li></li>').join('')}</ol>`}
+        <p class="feedback"></p>
+        <div class="footer-actions echo-actions">
+          <button class="btn" data-act="replay">${icon.replay()}再聽一次</button>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost" data-act="skip">直接看音名${icon.next()}</button>
+        </div>`;
+      // Notes are only taken once the phrase has finished, so say whose turn it is.
+      const turn = this.stage.querySelector('[data-el="turn"]');
+      const play = async () => {
+        turn.textContent = '播放中，先聽…';
+        turn.classList.remove('go');
+        await this.#demo(seq, { bpm: step.bpm, show: false });
+        turn.textContent = '換你彈';
+        turn.classList.add('go');
+      };
+      this.stage.querySelector('[data-act="replay"]').onclick = () => play();
+      const skipped = new Promise((res) => { this.stage.querySelector('[data-act="skip"]').onclick = () => res(SKIP); });
+      const dots = [...this.stage.querySelectorAll('.echo-dots li')];
+      if (!bass || r === 0) this.kb.mark(targets[0], 'hint', '起');
+      this.#announce(`${ask}。${bass ? '' : '第一個音已經在琴鍵上亮起。'}`);
+      await this.#pause(300);
+      await play();
+      let clean = true;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        let tries = 0;
+        for (;;) {
+          const n = await Promise.race([this.#note(), skipped]);
+          if (n === SKIP) return null;
+          if (bass ? pc(n) === pc(t) : n === t) { this.kb.flash(n, true); break; }
+          tries++;
+          clean = false;
+          this.kb.flash(n, false);
+          if (tries >= 2) {
+            this.kb.mark(t, 'hint', '');
+            this.#feedback('下一個音的位置已經亮起', 'bad');
+          } else {
+            this.#feedback(i === 0 ? '不是這個音，再聽一次' : `前 ${i} 個音都對了。再聽一次，接著彈第 ${i + 1} 個音`, 'bad');
+            turn.textContent = '再聽一次…';
+            turn.classList.remove('go');
+            await this.#pause(400);
+            await play();
+          }
+        }
+        this.kb.unmark(t);
+        dots[i]?.classList.add('done');
+      }
+      results.push(clean);
+      this.#feedback(clean ? '一次就彈對了' : bass ? '找到低音了' : '這句彈出來了', 'ok');
+      await this.#pause(r + 1 < rounds.length ? 700 : 400);
+      this.kb.clearMarks();
+    }
+    this.#feedback(`${bass ? '低音線' : '旋律'}已經聽熟了。接下來對照${bass ? '和弦名稱' : '音名和譜'}再彈一次。`, 'ok');
+    await this.#pause(1600);
+    return null;
+  }
+
   async step_melody(step) {
     const notes = step.notes;
     // Group notes into 4-beat bars so rhythm is visible; short notes get narrower chips.
@@ -1207,6 +1290,31 @@ export class LessonRunner {
     await this.#pause(1200);
     return { total: notes.length, right, misses };
   }
+}
+
+// Sound before symbol: a piece segment opens with its music by ear. A melody is
+// echoed phrase by phrase (about a bar each, the first four phrases); a chord
+// piece by its bass line. Names and score come only in the steps after.
+export function echoStep(steps) {
+  const mel = steps.find((s) => s.type === 'melody');
+  if (mel) {
+    const phrases = [];
+    let cur = [];
+    let beats = 0;
+    for (const x of mel.notes) {
+      cur.push({ n: x.n, d: x.d || 1 });
+      beats += x.d || 1;
+      if ((beats >= 4 && cur.length >= 3) || cur.length >= 8) { phrases.push(cur); cur = []; beats = 0; }
+    }
+    if (cur.length) {
+      if (cur.length < 3 && phrases.length) phrases[phrases.length - 1].push(...cur);
+      else phrases.push(cur);
+    }
+    return { type: 'echo', mode: 'melody', title: mel.title, phrases: phrases.slice(0, 4), bpm: mel.bpm || 90 };
+  }
+  const prog = steps.find((s) => s.type === 'chords' && s.progression);
+  if (prog) return { type: 'echo', mode: 'bass', title: prog.title, chords: prog.chords.slice(0, 10), bpm: prog.bpm || 80 };
+  return null;
 }
 
 // Average answer time for recall drills: the aim is to know, not to count.

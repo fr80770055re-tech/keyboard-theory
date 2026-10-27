@@ -135,17 +135,18 @@ export class Piano {
   }
 
   // Play notes for demos: [{ n, d }] with d in beats, or plain numbers (1 beat each).
-  async playSequence(notes, { bpm = 90, signal } = {}) {
+  // show: false keeps the on-screen keys still (ear-only exercises).
+  async playSequence(notes, { bpm = 90, signal, show = true } = {}) {
     const beat = 60 / bpm;
     for (const item of notes) {
       if (signal?.aborted) return;
       const { n, d = 1 } = typeof item === 'number' ? { n: item } : item;
       const group = Array.isArray(n) ? n : [n];
       group.forEach((x) => this.noteOn(x, 0.7));
-      this.onDemoNote?.(group, true);
+      if (show) this.onDemoNote?.(group, true);
       await wait(d * beat * 1000 * 0.9, signal);
       group.forEach((x) => this.noteOff(x, 0.15));
-      this.onDemoNote?.(group, false);
+      if (show) this.onDemoNote?.(group, false);
       await wait(d * beat * 1000 * 0.1, signal);
     }
   }
