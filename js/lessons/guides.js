@@ -3,7 +3,7 @@
 // of each guide; nothing here is quoted from them.
 
 import { CAGED, CAGED_ORDER, cagedFigure, cagedShift } from './guitar-chords.js';
-import { arpFigure, triadFigure, shellFigure } from './guitar-arp.js';
+import { arpFigure, cagedArpFigure, triadFigure, shellFigure } from './guitar-arp.js';
 
 export const GUIDES = {
   fretboard: {
@@ -275,6 +275,18 @@ export const GUIDES = {
         drills: ['garp-box', 'garp-degree'],
       },
       {
+        title: '3b. CAGED 五個琶音位置',
+        body: `<p>和和弦一樣，每個琶音都能在指板上用 <b>C、A、G、E、D</b> 五個位置彈，依這個順序往高把位相接，鋪滿整個指板。每個位置就是那個 CAGED 和弦指形附近的五格範圍，只是把和弦音一個一個彈出來。</p>
+          <ul><li><b>C 型</b>：根音在第 5、2 弦；最低的五度、三度可以從第 6 弦開始。</li>
+          <li><b>A 型</b>：根音在第 5、3 弦。</li>
+          <li><b>G 型</b>：根音在第 6、3、1 弦；跨度較大，手要張開。</li>
+          <li><b>E 型</b>：根音在第 6、4、1 弦。</li>
+          <li><b>D 型</b>：根音在第 4、2 弦。</li></ul>
+          <p>小三和弦、七和弦也是同樣五個區域，只是換成各自的組成音（例如三度降半音）。下面是 C 大三和弦的五個位置，由低到高。</p>`,
+        figures: ['C', 'A', 'G', 'E', 'D'].map((sh) => ({ caption: `C 琶音：${sh} 型位置`, fig: cagedArpFigure(0, '', sh) })),
+        drills: ['garp-caged'],
+      },
+      {
         title: '4. 怎麼練琶音',
         body: `<ul><li><b>從最低的根音開始</b>，往上彈到最高，再回到根音結束，讓耳朵每次都聽到「家」在哪裡。</li>
           <li><b>慢、乾淨優先</b>：先用交替撥弦（下、上）一個音一個音彈。很乾淨之後，再試著把相鄰弦的音一次「掃」過去（掃弦）。</li>
@@ -329,12 +341,13 @@ export const GUIDES = {
       },
     ],
     plan: {
-      title: '三週練法',
+      title: '四週練法',
       note: '每天 10–15 分鐘。正確率穩定後再看速度；每一週都把前一週的練習混進來。',
       weeks: [
         { title: '第 1 週：公式與兩個琶音位置', body: '先能說出六種和弦的組成音，再在根音位於第 6、5 弦的兩個把位上找出大、小三和弦琶音，邊彈邊說度數。', drills: ['garp-formula', 'garp-box', 'garp-degree'] },
         { title: '第 2 週：三和弦與弦組', body: '在第 3-2-1 弦把 C、F、G 的三種轉位接起來，再搬到 4-3-2 弦，注意 B 弦多一格。', drills: ['gtri-inv', 'gtri-build', 'gder-interval'] },
         { title: '第 3 週：七和弦、殼和弦與聽力', body: '加入七和弦琶音與殼和弦，用 Dm7–G7–Cmaj7 練習換和弦換琶音；每天聽幾題琶音辨和弦。', drills: ['garp-box', 'gder-shell', 'garp-hear'] },
+        { title: '第 4 週：CAGED 五個位置', body: '每天選一個和弦，從最低的位置往上，依 C → A → G → E → D 把五個琶音位置彈完一輪，說出每個位置的名稱與根音所在的弦。', drills: ['garp-caged'] },
       ],
     },
     sources: [

@@ -703,3 +703,17 @@ body.in-lesson.kb-off .stage { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before { transition: none !important; animation: none !important; }
 }
+
+/* ---------- chord lookup ---------- */
+.lookup-link { margin: 4px 0 8px; }
+.lk-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+.lk-pick .seg-btn { border: 1px solid var(--line-strong); min-width: 44px; min-height: 40px; padding: 4px 10px; }
+.lk-g { font-size: .8125rem; color: var(--muted); min-width: 3.5em; }
+.lk-sym { font-family: var(--font-display); font-size: 2rem; color: var(--accent); margin-right: .2em; }
+.pk { display: block; margin: 6px 0; }
+.pk .pk-w { fill: var(--white-key); stroke: var(--key-border); stroke-width: 1; }
+.pk .pk-b { fill: var(--black-key); }
+.pk .pk-w.on { fill: color-mix(in srgb, var(--accent) 22%, var(--white-key)); }
+.pk .pk-b.on { fill: var(--accent); }
+.pk .pk-t { font-size: 11px; font-weight: 700; text-anchor: middle; fill: var(--accent); }
+.pk .pk-tb { fill: var(--on-accent); }

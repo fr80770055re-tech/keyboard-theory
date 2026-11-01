@@ -10,6 +10,7 @@ import { DRILLS, findDrill } from './lessons/drills.js';
 import { GUIDES } from './lessons/guides.js';
 import { icon } from './icons.js';
 import { drawFretboard } from './fretboard.js';
+import { renderChordLookup, lastLookup } from './chord-lookup.js';
 
 const $ = (sel) => document.querySelector(sel);
 const view = $('#view');
@@ -380,6 +381,7 @@ function drillsHtml() {
   return `<section class="panel drills" id="drills" aria-labelledby="drills-title">
     <div class="row"><h2 id="drills-title">樂理練習</h2><span class="tag">不用琴鍵 · 手機直式可用</span></div>
     <p class="muted drills-lead">每輪約 3–4 分鐘，看譜或聽完後點選答案。答錯的會排進今日複習。<span class="phone-only">彈奏的課程需要琴鍵：接 MIDI 鍵盤、用電腦，或把手機橫放點畫面上的琴鍵。</span></p>
+    <button class="btn lookup-link" data-lookup>${icon.note()}圖解和弦查表：組成音、鋼琴位置與吉他指形${icon.next()}</button>
     ${groups.map((g) => `<h3 class="drill-group">${g}</h3>${(GUIDE_FOR[g] || []).map((id) => `<button class="btn btn-ghost guide-link" data-guide="${id}">${GUIDES[id].link || `怎麼練才記得住？看${GUIDES[id].title}`}${icon.next()}</button>`).join('')}
       <ul class="drill-list">${DRILLS.filter((d) => d.group === g).map((d) => `<li><button class="drill" data-drill="${d.id}">
         <b>${d.title}</b><span>${d.desc}</span><small>約 ${d.minutes} 分鐘${d.ear ? ' · 需要聲音' : ''}</small>
@@ -417,6 +419,21 @@ function showHome() {
   view.querySelectorAll('[data-review]').forEach((b) => { b.onclick = startReview; });
   view.querySelectorAll('[data-drill]').forEach((b) => { b.onclick = () => startDrill(b.dataset.drill); });
   view.querySelectorAll('[data-guide]').forEach((b) => { b.onclick = () => showGuide(b.dataset.guide); });
+  view.querySelectorAll('[data-lookup]').forEach((b) => { b.onclick = showChordLookup; });
+  view.scrollTo(0, 0);
+}
+
+// Visual chord dictionary (js/chord-lookup.js); remembers the last chord looked up.
+function showChordLookup() {
+  runner = null;
+  setLessonMode(false);
+  setKeyboardVisible(false);
+  const { root = 0, key = '' } = lastLookup();
+  renderChordLookup(view, {
+    root, key,
+    onPlay: (seq) => { piano.unlock(); piano.playSequence(seq, { bpm: 110 }); },
+    onBack: () => { showHome(); view.querySelector('#drills')?.scrollIntoView({ block: 'start' }); },
+  });
   view.scrollTo(0, 0);
 }
 

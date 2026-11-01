@@ -3,6 +3,7 @@
 // never typed in by hand, so a shape is right in every key by construction.
 import { midiAt, fretName, OPEN } from '../fretboard.js';
 import { CONCEPTS } from './concepts.js';
+import { CAGED, CAGED_ORDER, cagedShift } from './guitar-chords.js';
 
 const ROOT_NAME = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 const mod12 = (x) => ((x % 12) + 12) % 12;
@@ -38,24 +39,30 @@ export const spell = (root, q) => {
 };
 
 // ---------- arpeggio positions ----------
-// A position = every chord tone inside a five-fret window that starts one fret
-// below the lowest root (root on string 6: E-shape area; on string 5: A-shape area).
-export function arpeggioBox(root, q, rootString, rootFret) {
-  const lo = Math.max(0, rootFret - 1);
-  const hi = rootFret + 3;
-  const tones = ARP[q].tones;
+// The five CAGED positions of an arpeggio: every chord tone in a five-fret window
+// around that CAGED chord shape for this root (one fret below where the open shape's
+// nut has moved to, up to three above). Works for any chord quality: the window
+// comes from the major CAGED shape, the notes from the chord's formula.
+export function cagedArpeggio(root, q, shape, shift = cagedShift(shape, root), tones = ARP[q].tones) {
+  const lo = Math.max(0, shift - 1);
+  const hi = shift + 3;
   const notes = [];
   for (let s = 6; s >= 1; s--) {
     for (let f = lo; f <= hi; f++) {
       const t = mod12(midiAt(s, f) - root);
-      if (tones.includes(t)) notes.push({ s, f, n: midiAt(s, f), role: DEGREE[t] });
+      if (tones.includes(t)) notes.push({ s, f, n: midiAt(s, f), role: DEGREE[t] ?? String(t) });
     }
   }
-  return { lo, hi, notes };
+  const rootString = CAGED[shape].roots[0];
+  return { shape, shift, lo, hi, notes, rootString, rootFret: CAGED[shape].frets[6 - rootString] + shift };
+}
+// Root on string 6 = the E-shape position, root on string 5 = the A-shape position.
+export function arpeggioBox(root, q, rootString, rootFret) {
+  return cagedArpeggio(root, q, rootString === 6 ? 'E' : 'A', rootFret);
 }
 // Root fret on a string for a root pitch class, kept in the comfortable 2–9 range.
 const rootFretFor = (s, root) => { const f = mod12(root - OPEN[s]); return f < 2 ? f + 12 : f; };
-const boxFigure = (box, { roles = true, hide = null } = {}) => ({
+export const boxFigure = (box, { roles = true, hide = null } = {}) => ({
   from: Math.max(0, box.lo - 1), frets: box.hi - Math.max(0, box.lo - 1), vertical: true,
   marks: box.notes.map((x) => {
     const hidden = hide && hide.s === x.s && hide.f === x.f;
@@ -113,7 +120,7 @@ function boxQuestion() {
 
 // One note of a position marked ?, name its degree.
 function degreeQuestion() {
-  const { q, root, box } = randomBox(['', 'm', '7', 'maj7', 'm7', 'm7b5']);
+  const { q, root, box } = randomCaged(['', 'm', '7', 'maj7', 'm7', 'm7b5']);
   const candidates = box.notes.filter((x) => x.role !== 'R');
   const hide = pick(candidates);
   // Choices: this chord's own degrees plus one look-alike that is not in it.
@@ -149,6 +156,50 @@ function hearQuestion() {
   };
 }
 
+// CAGED positions for all five shapes, shift kept on the neck (0–9).
+const randomCaged = (qs) => {
+  for (;;) {
+    const q = pick(qs);
+    const root = pick([...Array(12).keys()]);
+    const shape = pick(CAGED_ORDER);
+    let shift = cagedShift(shape, root);
+    if (shift === 0 && Math.random() < 0.5) shift = 12; // sometimes the same shape an octave up
+    if (shift <= 9 || shift === 12) return { q, root, shape, box: cagedArpeggio(root, q, shape, shift > 9 ? 12 : shift) };
+  }
+};
+
+// Tap every tone of one CAGED position.
+function cagedBoxQuestion() {
+  const { q, root, shape, box } = randomCaged(['', 'm', '7', 'maj7', 'm7']);
+  if (box.hi > 15) return cagedBoxQuestion();
+  return {
+    key: `cb${root}${q}${shape}${box.shift}`,
+    prompt: `${shape} 型位置（第 ${box.lo}–${box.hi} 格）：點出 <span class="big">${chordName(root, q)}</span> 琶音的所有音`,
+    all: true,
+    board: { from: Math.max(0, box.lo - 1), frets: box.hi - Math.max(0, box.lo - 1) },
+    marks: [{ s: box.rootString, f: box.rootFret, kind: 'root', label: 'R' }],
+    targets: box.notes.map((x) => [x.s, x.f]),
+    hint: `${shape} 型的根音在第 ${CAGED[shape].roots.join('、')} 弦。先找出另一個根音，再用度數找 ${spell(root, q).slice(1).join('、')}。`,
+    explain: `${chordName(root, q)}＝${spell(root, q).join('、')}。${shape} 型位置共有 ${box.notes.length} 個琶音音；它和開放的 ${shape} 和弦（${box.shift ? `往上移 ${box.shift} 格` : '在琴枕'}）是同一塊區域。`,
+    answerLabel: `${chordName(root, q)} 琶音（${shape} 型）`,
+  };
+}
+
+// See a position, name its CAGED shape.
+function cagedArpShapeQuestion() {
+  const { q, root, shape, box } = randomCaged(['', 'm', '7', 'maj7']);
+  if (box.hi > 15) return cagedArpShapeQuestion();
+  return {
+    key: `cs${root}${q}${shape}${box.shift}`,
+    prompt: `這是 ${chordName(root, q)} 琶音的一個位置。它是 CAGED 的哪一型？`,
+    fretboard: boxFigure(box),
+    options: CAGED_ORDER, answer: CAGED_ORDER.indexOf(shape),
+    play: upAndDown(box), bpm: 120,
+    hint: '看根音 R 落在哪幾條弦：C 型在第 5、2 弦；A 型在第 5、3 弦；G 型在第 6、3、1 弦；E 型在第 6、4、1 弦；D 型在第 4、2 弦。',
+    explain: `${shape} 型：根音在第 ${CAGED[shape].roots.join('、')} 弦。往高把位，五個位置依 C → A → G → E → D 的順序相接。`,
+  };
+}
+
 // ---------- triads on string sets ----------
 export const STRING_SETS = [[6, 5, 4], [5, 4, 3], [4, 3, 2], [3, 2, 1]];
 const INV = ['原位', '第一轉位', '第二轉位'];
@@ -157,7 +208,10 @@ const INV_BASS = ['根音', '三音', '五音'];
 // then the next chord tones stacked upward. Returns frets (null if it will not fit
 // minFret–12). Drills use 1–12 so the answer is unique; figures may use open strings.
 export function triadShape(root, q, inv, set, minFret = 1) {
-  const tones = ARP[q].tones.slice(0, 3).map((t) => mod12(root + t));
+  return closeTriad(ARP[q].tones.slice(0, 3).map((t) => mod12(root + t)), inv, set, minFret);
+}
+// Any three pitch classes (root, middle, top as written), close-voiced on a string set.
+export function closeTriad(tones, inv, set, minFret = 1) {
   for (let bf = minFret; bf <= 12; bf++) {
     let n = midiAt(set[0], bf);
     if (mod12(n) !== tones[inv]) continue;
@@ -296,6 +350,7 @@ const tapRound = (concept, kicker, make, k, instruction) => () => ({ type: 'fret
 export const GUITAR_ARP_DRILLS = [
   { id: 'garp-formula', group: '吉他琶音', title: '琶音公式', desc: '大、小、7、maj7、m7、m7♭5 由哪些音組成', minutes: 3, steps: [choiceRound('garp-formula', '吉他琶音：公式', formulaQuestion, 8)] },
   { id: 'garp-box', group: '吉他琶音', title: '在一個把位找出琶音', desc: '從根音出發，點出五格內所有和弦音', minutes: 5, steps: [tapRound('garp-box', '吉他琶音：把位', boxQuestion, 5, '點出框內所有屬於這個和弦的音。根音 R 已標好；同一個音名在不同弦上都要點。')] },
+  { id: 'garp-caged', group: '吉他琶音', title: 'CAGED 五個琶音位置', desc: 'C、A、G、E、D 型：認位置、點出所有音', minutes: 5, steps: [choiceRound('garp-caged', '吉他琶音：認位置', cagedArpShapeQuestion, 4), tapRound('garp-caged', '吉他琶音：CAGED 位置', cagedBoxQuestion, 4, '點出框內所有屬於這個和弦的音。')] },
   { id: 'garp-degree', group: '吉他琶音', title: '琶音裡的度數', desc: '每個音是 R、3、5 還是 7', minutes: 4, steps: [choiceRound('garp-degree', '吉他琶音：度數', degreeQuestion, 8)] },
   { id: 'garp-hear', group: '吉他琶音', title: '聽琶音辨和弦', desc: '大、小、7、maj7、m7', minutes: 3, steps: [choiceRound('garp-hear', '吉他琶音：聽辨', hearQuestion, 8)] },
   { id: 'gtri-inv', group: '吉他三和弦', title: '認三和弦轉位', desc: '原位、第一、第二轉位：看最低音', minutes: 3, steps: [choiceRound('gtri-inv', '三和弦：轉位', inversionQuestion, 8)] },
@@ -307,6 +362,7 @@ export const GUITAR_ARP_DRILLS = [
 Object.assign(CONCEPTS, {
   'garp-formula': { name: '琶音公式', review: () => [choiceRound('garp-formula', '複習：琶音公式', formulaQuestion, 3)] },
   'garp-box': { name: '把位裡的琶音', review: () => [tapRound('garp-box', '複習：琶音把位', boxQuestion, 2)] },
+  'garp-caged': { name: 'CAGED 琶音位置', review: () => [choiceRound('garp-caged', '複習：CAGED 琶音', cagedArpShapeQuestion, 2), tapRound('garp-caged', '複習：CAGED 琶音', cagedBoxQuestion, 1)] },
   'garp-degree': { name: '琶音度數', review: () => [choiceRound('garp-degree', '複習：琶音度數', degreeQuestion, 3)] },
   'garp-hear': { name: '聽辨琶音', review: () => [choiceRound('garp-hear', '複習：聽琶音', hearQuestion, 3)] },
   'gtri-inv': { name: '三和弦轉位', review: () => [choiceRound('gtri-inv', '複習：三和弦轉位', inversionQuestion, 3)] },
@@ -317,6 +373,7 @@ Object.assign(CONCEPTS, {
 
 // Figures for the guide.
 export const arpFigure = (root, q, rs) => boxFigure(arpeggioBox(root, q, rs, rootFretFor(rs, root)));
+export const cagedArpFigure = (root, q, shape, shift) => boxFigure(cagedArpeggio(root, q, shape, shift));
 export const triadFigure = (root, q, inv, set) => {
   const frets = triadShape(root, q, inv, set, 0);
   return { from: Math.max(0, Math.min(...frets) - 1), frets: Math.min(...frets) ? 5 : 4, vertical: true, marks: triadMarks(set, frets, root, { roles: true }), label: `${chordName(root, q)} ${INV[inv]}` };
