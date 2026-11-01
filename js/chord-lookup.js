@@ -6,6 +6,7 @@ import { drawFretboard, midiAt, OPEN } from './fretboard.js';
 import { OPEN_CHORDS, MOVABLE, CAGED, CAGED_ORDER, cagedShift } from './lessons/guitar-chords.js';
 import { cagedArpeggio, boxFigure, closeTriad, STRING_SETS, shellFrets } from './lessons/guitar-arp.js';
 import { icon } from './icons.js';
+import { VOICINGS_C, REQUIRED, voicingsFor, checkVoicing } from './lessons/guitar-voicings.js';
 
 const mod12 = (x) => ((x % 12) + 12) % 12;
 export const ROOTS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
@@ -154,6 +155,19 @@ export function guitarSections(root, type) {
     });
     sections.push({ title: '殼和弦（R＋3＋7）', note: '五度省略；三音決定大小，七音決定種類。', figs });
   }
+  // Full voicings for the other chord types (sourced from FaChords, re-checked here).
+  if (VOICINGS_C[type.key]) {
+    const tonesSemi = type.tones.map(([x]) => x);
+    const figs = voicingsFor(type.key, root)
+      .map((v) => ({ v, c: checkVoicing(v.frets, root, tonesSemi, REQUIRED[type.key]) }))
+      .filter(({ c }) => c.ok)
+      .map(({ v, c }) => {
+        const bassDeg = degreeOf(type, c.bass);
+        const where = v.open ? '用到空弦' : `根音在第 ${c.rootString} 弦`;
+        return chart(v.frets, root, type, `${name}：${where}${bassDeg !== 'R' ? `，最低音是 ${bassDeg}（轉位）` : ''}`);
+      });
+    if (figs.length) sections.push({ title: '常用六弦按法', note: '整理自 FaChords 的和弦圖，每個按法都經過檢查：只含和弦音、包含決定和弦性質的音、手指跨度在五格內。沒有空弦的按法可以整塊移到其他根音。', figs });
+  }
   // CAGED arpeggio positions (any chord type).
   const tones = type.tones.map(([s]) => mod12(s));
   const arps = CAGED_ORDER.map((sh) => {
@@ -175,7 +189,7 @@ export function renderChordLookup(el, { root = 0, key = '', onPlay, onBack } = {
   el.innerHTML = `<article class="guide lookup">
     <div class="lesson-head"><button class="btn btn-ghost btn-icon-text" data-act="home">${icon.back()}回首頁</button></div>
     <h1>圖解和弦查表</h1>
-    <p class="lead">選根音與和弦種類，看組成音、鋼琴位置與吉他指形。所有指形都由和弦公式算出。</p>
+    <p class="lead">選根音與和弦種類，看組成音、鋼琴位置與吉他指形。指形由和弦公式算出，或整理自公開和弦圖；每一個都經過程式檢查。</p>
     <div class="lk-pick" role="group" aria-label="根音">${ROOTS.map((r, i) => `<button class="seg-btn lk-root" data-root="${i}" aria-pressed="${i === root}">${r}</button>`).join('')}</div>
     ${groups.map((g) => `<div class="lk-pick" role="group" aria-label="${g}"><span class="lk-g">${g}</span>${TYPES.filter((t) => t.group === g).map((t) => `<button class="seg-btn lk-type" data-key="${t.key}" aria-pressed="${t.key === type.key}">${t.key || 'M'}</button>`).join('')}</div>`).join('')}
     <section class="guide-sec lk-head">
