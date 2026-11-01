@@ -374,7 +374,7 @@ function lessonsHtml() {
 }
 
 // Tap-to-answer theory practice: no keyboard needed, so it leads on phones.
-const GUIDE_FOR = { 吉他指板: ['fretboard'], 吉他和弦: ['chords', 'caged'] };
+const GUIDE_FOR = { 吉他指板: ['fretboard'], 吉他和弦: ['chords', 'caged'], 吉他琶音: ['arpeggio'], 吉他三和弦: ['arpeggio'] };
 function drillsHtml() {
   const groups = [...new Set(DRILLS.map((d) => d.group))];
   return `<section class="panel drills" id="drills" aria-labelledby="drills-title">

@@ -6,6 +6,7 @@ import {
 } from './concepts.js';
 import { GUITAR_DRILLS } from './guitar.js';
 import { GUITAR_CHORD_DRILLS } from './guitar-chords.js';
+import { GUITAR_ARP_DRILLS } from './guitar-arp.js';
 import { shuffleDraw } from './kit.js';
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -178,6 +179,7 @@ export const DRILLS = [
   { id: 'concepts', group: '觀念', title: '調性與級數', desc: '關係大小調、和聲小調、順階和弦級數', minutes: 3, steps: [bank('key-relations', '觀念：大小調', KEY_QUIZ, 4), bank('diatonic-roman', '觀念：級數', ROMAN_QUIZ, 4)] },
   ...GUITAR_DRILLS,
   ...GUITAR_CHORD_DRILLS,
+  ...GUITAR_ARP_DRILLS,
 ];
 
 export const findDrill = (id) => DRILLS.find((x) => x.id === id);

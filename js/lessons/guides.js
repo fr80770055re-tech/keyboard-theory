@@ -3,6 +3,7 @@
 // of each guide; nothing here is quoted from them.
 
 import { CAGED, CAGED_ORDER, cagedFigure, cagedShift } from './guitar-chords.js';
+import { arpFigure, triadFigure, shellFigure } from './guitar-arp.js';
 
 export const GUIDES = {
   fretboard: {
@@ -239,6 +240,114 @@ export const GUIDES = {
       { title: 'Andy Guitar：The CAGED System Explained', url: 'https://www.andyguitar.co.uk/lessons/06-the-caged-system-explained', note: '以 C 與 G 和弦說明五個位置' },
       { title: 'Songnotes：CAGED Chord Shapes, Explained', url: 'https://songnotes.net/lessons/385', note: '每個大和弦都能用五種指形彈；小和弦同理' },
       { title: 'JustinGuitar：The CAGED System – E Shape', url: 'https://justinguitar.com/guitar-lessons/the-caged-system-e-shape-tb-032', note: '不用空弦的指形都可移動；E 型根音在第 6 弦' },
+    ],
+  },
+  arpeggio: {
+    id: 'arpeggio',
+    title: '琶音、三和弦與指板推算',
+    link: '怎麼練？看〈琶音、三和弦與指板推算〉',
+    lead: '琶音、三和弦指形、殼和弦，其實都是同一件事：和弦＝根音加上幾個固定的音程。只要會在指板上找根音、知道每個音程差幾格（再記住 G–B 弦的例外），任何和弦的琶音與指形都能自己推出來，不必一個一個死背。下面每張圖的 R 是根音，3、5、7 是和弦的第幾度。',
+    sections: [
+      {
+        title: '1. 琶音是什麼',
+        body: `<p><b>琶音</b>就是把和弦的音一個一個依序彈出來，而不是同時刷響。它和和弦是同一組音，所以拿來即興時，每個音都「一定對」。</p>
+          <p>琶音也是和音階並列的基本功：練它能同時訓練手指、耳朵，以及對和弦組成的理解。</p>`,
+        drills: [],
+      },
+      {
+        title: '2. 公式：先會算，再去彈',
+        body: `<p>每一種和弦都有固定公式（數字是大調音階的第幾度）：</p>
+          <ul><li>大三和弦 <b>1–3–5</b>、小三和弦 <b>1–♭3–5</b></li>
+          <li>屬七和弦 <b>1–3–5–♭7</b>、大七和弦 <b>1–3–5–7</b>、小七和弦 <b>1–♭3–5–♭7</b></li>
+          <li>半減七和弦 <b>1–♭3–♭5–♭7</b>（寫成 m7♭5 或 ø7）</li></ul>
+          <p>換算成半音：♭3＝3、3＝4、♭5＝6、5＝7、♭7＝10、7＝11。拼音時每隔一個字母疊一個音，例如 B♭ 的大三和弦寫成 B♭–D–F，不寫 A♯–D–F。</p>`,
+        drills: ['garp-formula'],
+      },
+      {
+        title: '3. 琶音指形＝和弦指形裡的音',
+        body: `<p>在一個把位裡，把屬於這個和弦的音全部找出來，就是這個把位的琶音。根音在第 6 弦時，它落在 E 型和弦附近；根音在第 5 弦時，落在 A 型附近。這兩個位置的指形可以整塊移動，和橫按和弦一樣，名字跟著根音走。</p>
+          <p>對照 CAGED：每一種和弦都能在指板上找到五個琶音位置，各自對應 C、A、G、E、D 五個指形。先熟兩個（根音在第 6、5 弦），再往其他三個擴充。</p>`,
+        figures: [
+          { caption: 'C 大三和弦琶音：根音在第 5 弦第 3 格', fig: arpFigure(0, '', 5) },
+          { caption: 'C 大三和弦琶音：根音在第 6 弦第 8 格', fig: arpFigure(0, '', 6) },
+          { caption: 'Am7 琶音：根音在第 6 弦第 5 格', fig: arpFigure(9, 'm7', 6) },
+        ],
+        drills: ['garp-box', 'garp-degree'],
+      },
+      {
+        title: '4. 怎麼練琶音',
+        body: `<ul><li><b>從最低的根音開始</b>，往上彈到最高，再回到根音結束，讓耳朵每次都聽到「家」在哪裡。</li>
+          <li><b>慢、乾淨優先</b>：先用交替撥弦（下、上）一個音一個音彈。很乾淨之後，再試著把相鄰弦的音一次「掃」過去（掃弦）。</li>
+          <li><b>邊彈邊說度數</b>（R、3、5、7），而不只是音名：之後換調時，度數不會變。</li>
+          <li><b>放進和弦進行</b>：例如 C–C–F–G，或 Dm7–G7–Cmaj7，和弦換到哪裡，就彈哪一個琶音。先只用和弦音，熟了再加入音階的經過音。</li></ul>`,
+        drills: ['garp-hear', 'garp-box'],
+      },
+      {
+        title: '5. 三和弦與轉位',
+        body: `<p>三和弦只有三個音（1–3–5），換順序就是<b>轉位</b>，判斷的關鍵是<b>最低音</b>：</p>
+          <ul><li>最低音是根音：<b>原位</b></li><li>最低音是三音：<b>第一轉位</b></li><li>最低音是五音：<b>第二轉位</b></li></ul>
+          <p>在吉他上，最常用的是擠在三條相鄰弦上的「密集」三和弦。音少、好按，在樂團裡不會和貝斯、鍵盤打架，也是很多旋律與和聲的骨架。</p>`,
+        figures: [
+          { caption: 'C 原位（第 3-2-1 弦）', fig: triadFigure(0, '', 0, [3, 2, 1]) },
+          { caption: 'C 第一轉位（第 3-2-1 弦）', fig: triadFigure(0, '', 1, [3, 2, 1]) },
+          { caption: 'C 第二轉位（第 3-2-1 弦）', fig: triadFigure(0, '', 2, [3, 2, 1]) },
+        ],
+        drills: ['gtri-inv'],
+      },
+      {
+        title: '6. 四組弦與 G–B 例外',
+        body: `<p>相鄰的三條弦有四組：第 6-5-4、5-4-3、4-3-2、3-2-1 弦。標準調弦裡，相鄰兩弦都差<b>完全四度</b>（5 個半音），只有 <b>G 弦到 B 弦差大三度</b>（4 個半音）。</p>
+          <p>所以同一個和弦、同一個轉位，搬到包含 B 弦的弦組時，B 弦（以及更細的 E 弦）上的音要比你預期的<b>多往上一格</b>。這不是要另外背的新指形，而是可以推算出來的規則。</p>
+          <p>練法：先在一組弦上，把三種轉位由低到高接起來；再換到相鄰的弦組，同一個和弦用不同轉位接上。</p>`,
+        figures: [
+          { caption: 'F 原位：第 5-4-3 弦（格數 8、7、5，相差 0、−1、−3）', fig: triadFigure(5, '', 0, [5, 4, 3]) },
+          { caption: 'F 原位：第 4-3-2 弦（格數 3、2、1，相差 0、−1、−2：B 弦多一格）', fig: triadFigure(5, '', 0, [4, 3, 2]) },
+        ],
+        drills: ['gtri-build', 'gder-interval'],
+      },
+      {
+        title: '7. 推算：從根音找任何音程',
+        body: `<p>只要記住「下一條較細的弦高 5 個半音（G→B 是 4 個）」，就能從任何根音推出三度、五度、七度在哪：</p>
+          <ul><li>目標音程的半音數 − 兩弦相差的半音數 ＝ 在下一條弦上往上（正）或往下（負）幾格。</li>
+          <li>例：第 6 弦的根音，大三度在第 5 弦往下 1 格（4 − 5）；完全五度在第 5 弦往上 2 格（7 − 5）；八度在第 4 弦往上 2 格。</li>
+          <li>跨到 B 弦時，每個位置再往上 1 格。</li></ul>
+          <p>這也是第 3 節琶音與第 6 節三和弦之所以「推得出來」的原因。</p>`,
+        drills: ['gder-interval'],
+      },
+      {
+        title: '8. 殼和弦：根音、三音、七音',
+        body: `<p><b>殼和弦</b>只彈三個音：根音、三音、七音，<b>五度省略</b>。三音決定大小，七音決定是 maj7、7 還是 m7，五度對和弦性質幾乎沒有影響。</p>
+          <ul><li>根音在<b>第 6 弦</b>：七音在第 4 弦、三音在第 3 弦。</li>
+          <li>根音在<b>第 5 弦</b>：三音在第 4 弦、七音在第 3 弦。</li></ul>
+          <p>殼和弦音少、聲音乾淨，常用在爵士與樂團的伴奏（comping）：有貝斯彈根音時，甚至只彈三音和七音。這和鍵盤課〈七和弦〉裡左手根音、右手三音與七音的做法完全相同。</p>`,
+        figures: [
+          { caption: 'G7 殼和弦（根音在第 6 弦）', fig: shellFigure(6, 3, '7') },
+          { caption: 'Cmaj7 殼和弦（根音在第 5 弦）', fig: shellFigure(5, 3, 'maj7') },
+          { caption: 'Dm7 殼和弦（根音在第 5 弦）', fig: shellFigure(5, 5, 'm7') },
+        ],
+        drills: ['gder-shell'],
+      },
+    ],
+    plan: {
+      title: '三週練法',
+      note: '每天 10–15 分鐘。正確率穩定後再看速度；每一週都把前一週的練習混進來。',
+      weeks: [
+        { title: '第 1 週：公式與兩個琶音位置', body: '先能說出六種和弦的組成音，再在根音位於第 6、5 弦的兩個把位上找出大、小三和弦琶音，邊彈邊說度數。', drills: ['garp-formula', 'garp-box', 'garp-degree'] },
+        { title: '第 2 週：三和弦與弦組', body: '在第 3-2-1 弦把 C、F、G 的三種轉位接起來，再搬到 4-3-2 弦，注意 B 弦多一格。', drills: ['gtri-inv', 'gtri-build', 'gder-interval'] },
+        { title: '第 3 週：七和弦、殼和弦與聽力', body: '加入七和弦琶音與殼和弦，用 Dm7–G7–Cmaj7 練習換和弦換琶音；每天聽幾題琶音辨和弦。', drills: ['garp-box', 'gder-shell', 'garp-hear'] },
+      ],
+    },
+    sources: [
+      { title: 'FaChords：Guitar Arpeggios', url: 'https://www.fachords.com/guitar-arpeggios/', note: '琶音的定義；大、小、7、maj7、m7、m7♭5 公式；根音在第 6、5 弦的可移動指形；配和弦進行練習、先只用和弦音' },
+      { title: 'Wikipedia：Arpeggio', url: 'https://en.wikipedia.org/wiki/Arpeggio', note: '琶音是依序彈出的和弦音；可在一個或多個八度內；與音階同為基本技術練習；吉他快速琶音常用掃弦' },
+      { title: 'Applied Guitar Theory：Major & Minor Arpeggios on Guitar', url: 'https://appliedguitartheory.com/lessons/major-minor-guitar-arpeggios/', note: '大、小琶音對應 CAGED 五個指形；從最低根音開始上下並回到根音；乾淨之後再掃弦' },
+      { title: 'Jazz Guitar Licks：Major Seventh Arpeggios', url: 'https://www.jazz-guitar-licks.com/pages/arpeggios/major-seventh-arpeggios-guitar-patterns-fingerings.html', note: 'maj7 琶音＝1–3–5–7；五個由 CAGED 衍生的位置；在 II–V–I 上的用法' },
+      { title: 'FaChords：Guitar Triads', url: 'https://www.fachords.com/guitar-triads/', note: '大、小、減、增三和弦公式；原位、第一、第二轉位由最低音決定；指形可整塊移動' },
+      { title: 'Premier Guitar：How to Use Triads（Nick Millevoi，2018）', url: 'https://www.premierguitar.com/articles/27170-how-to-use-triads', note: '以 G 和弦說明三種轉位；第 4-3-2 弦的三和弦與和弦進行；移到其他調與其他弦組' },
+      { title: 'Hub Guitar：Guitar Triads Chart', url: 'https://hubguitar.com/fretboard/augmented-triads', note: '四組相鄰弦上的密集三和弦；先在一組弦上下練，再跨弦組連接' },
+      { title: 'Wikipedia：Standard tuning', url: 'https://en.wikipedia.org/wiki/Standard_tuning', note: '標準調弦 E A D G B E：相鄰弦為完全四度，只有 G–B 是大三度' },
+      { title: 'FaChords：Shell Chords', url: 'https://www.fachords.com/shell-chords/', note: '殼和弦＝根音、三音、七音，省略五度；maj7、7、m7 的公式；用於伴奏與樂團' },
+      { title: 'Jazz Guitar Licks：Shell Chords for Jazz Guitar', url: 'https://www.jazz-guitar-licks.com/blog/lessons/shell-chords.html', note: '根音在第 6、5 弦的殼和弦；省略五度讓聲音更乾淨、空出手指；用於爵士伴奏' },
     ],
   },
 };

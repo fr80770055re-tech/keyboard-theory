@@ -1018,6 +1018,7 @@ export class LessonRunner {
       };
       const showTargets = (kind) => q.targets.forEach(([s, f]) => { if (!found.has(key([s, f]))) fb.mark(s, f, kind); });
       const fb = drawFretboard(this.stage.querySelector('[data-el="fb"]'), {
+        ...(q.board || {}), // optional window up the neck: { from, frets }
         marks: q.marks || [],
         label: q.prompt.replace(/<[^>]+>/g, ''),
         onTap: (s, f) => {
