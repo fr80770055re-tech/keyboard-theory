@@ -306,7 +306,8 @@ export function shellFrets(rootString, rootFret, q) {
   const place = (s, t) => {
     // The chord tone on string s nearest the root's fret.
     let best = null;
-    for (let f = 0; f <= 12; f++) {
+    // Search past fret 12 so a root at fret 12–13 keeps its 3rd and 7th beside it.
+    for (let f = 0; f <= rootFret + 6; f++) {
       if (mod12(midiAt(s, f) - root) === t && (best === null || Math.abs(f - rootFret) < Math.abs(best - rootFret))) best = f;
     }
     return best;
