@@ -31,6 +31,30 @@ export const REQUIRED = {
   dim7: [0, 3, 6, 9], 'm7♭5': [0, 3, 6, 10], mMaj7: [0, 3, 11], '7sus4': [0, 5, 10], add9: [0, 4, 2],
 };
 
+// Fewest fingers that can fret a shape (strings 6 → 1, null = not played). The index
+// may bar the lowest fret from some string up to string 1, as long as no string under
+// the bar is played open; one other finger may lie flat across adjacent strings at one
+// fret (the ring finger in an A-shape barre). Every other fretted note takes a finger.
+export function fingersNeeded(frets) {
+  const fretted = [0, 1, 2, 3, 4, 5].filter((k) => frets[k] !== null && frets[k] > 0);
+  if (!fretted.length) return 0;
+  const low = Math.min(...fretted.map((k) => frets[k]));
+  let best = Infinity;
+  for (const from of [null, ...fretted.filter((k) => frets[k] === low)]) {
+    if (from !== null && frets.slice(from).some((f) => f === 0)) continue;
+    const rest = fretted.filter((k) => from === null || k < from || frets[k] !== low);
+    let flat = 0;
+    for (let i = 0; i < rest.length;) {
+      let j = i;
+      while (j + 1 < rest.length && rest[j + 1] === rest[j] + 1 && frets[rest[j + 1]] === frets[rest[i]]) j++;
+      flat = Math.max(flat, j - i);
+      i = j + 1;
+    }
+    best = Math.min(best, (from === null ? 0 : 1) + rest.length - flat);
+  }
+  return best;
+}
+
 // { ok, reasons, span, fingers, bass } for a voicing of a chord (semitones above root).
 export function checkVoicing(frets, root, tones, required) {
   const played = STRINGS.map((s, k) => ({ s, f: frets[k] })).filter((x) => x.f !== null);
@@ -42,12 +66,7 @@ export function checkVoicing(frets, root, tones, required) {
   const fretted = played.filter((x) => x.f > 0).map((x) => x.f);
   const span = fretted.length ? Math.max(...fretted) - Math.min(...fretted) : 0;
   if (span > 4) reasons.push('跨度超過五格');
-  // Fingers: one finger may bar several strings at one fret (the index on the lowest
-  // fret, or e.g. the ring finger across fret 5 in an A-shape); use the best such fret.
-  const perFret = {};
-  fretted.forEach((f) => { perFret[f] = (perFret[f] || 0) + 1; });
-  const saved = Math.max(0, ...Object.values(perFret).map((c) => c - 1));
-  const fingers = fretted.length - saved;
+  const fingers = fingersNeeded(frets);
   if (fingers > 4) reasons.push('需要超過四根手指');
   // Muted strings between played ones are fine; the bass is the lowest played string.
   const bass = rel[0];

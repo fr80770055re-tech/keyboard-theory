@@ -8,6 +8,7 @@ import { cagedArpeggio, boxFigure, closeTriad, STRING_SETS, shellFrets } from '.
 import { icon } from './icons.js';
 import { VOICINGS_C, REQUIRED, voicingsFor, checkVoicing } from './lessons/guitar-voicings.js';
 
+
 const mod12 = (x) => ((x % 12) + 12) % 12;
 export const ROOTS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 
@@ -75,6 +76,49 @@ function pianoSvg(root, type) {
   return `<svg class="pk" viewBox="-1 -1 ${w + 2} ${H + 2}" style="width:min(100%, ${w * 1.4}px)" role="img" aria-label="鋼琴上的位置：${notes.length} 個音">${svg}</svg>`;
 }
 
+// Piano fingering for a close-position chord (MIDI notes, low → high), by the usual
+// rules: the thumb and little finger take the outer notes, and a whole/half step is
+// played with neighbouring fingers, so the skipped finger falls where the gap is wide.
+// Triads: R.H. 1-3-5 (1-2-5 when the top gap is a 4th or more), L.H. 5-3-1 (5-2-1 when
+// the bottom gap is a 4th or more). Four notes: R.H. 1-2-3-5, L.H. 5-3-2-1, switching
+// to 1-2-4-5 / 5-4-2-1 when a 2nd sits where the default would squeeze it.
+export function pianoFingering(notes) {
+  const g = notes.slice(1).map((n, i) => n - notes[i]);
+  const step = (x) => x <= 2;
+  if (notes.length === 3) {
+    const rh = step(g[1]) ? [1, 4, 5] : g[1] >= 5 ? [1, 2, 5] : [1, 3, 5];
+    const lh = step(g[0]) ? [5, 4, 1] : g[0] >= 5 ? [5, 2, 1] : [5, 3, 1];
+    return { rh, lh, wide: false };
+  }
+  if (notes.length === 4) {
+    const rh = step(g[2]) || step(g[0]) ? [1, 2, 4, 5] : [1, 2, 3, 5];
+    const lh = step(g[0]) ? [5, 4, 2, 1] : [5, 3, 2, 1];
+    return { rh, lh, wide: notes[3] - notes[0] > 12 };
+  }
+  return null;
+}
+
+// Close-position inversions (only for chords within an octave): each one moves the
+// bottom note up an octave. Returns [{ name, notes (MIDI), names (spelled) }].
+const INV_NAME = ['原位', '第一轉位', '第二轉位', '第三轉位'];
+export function pianoInversions(root, type) {
+  const base = pianoNotes(root, type);
+  const spelled = spellChord(root, type);
+  if (base[base.length - 1] - base[0] >= 12) return [{ name: '原位', notes: base, names: spelled }];
+  return base.map((_, i) => ({
+    name: INV_NAME[i],
+    notes: [...base.slice(i), ...base.slice(0, i).map((n) => n + 12)],
+    names: [...spelled.slice(i), ...spelled.slice(0, i)],
+  }));
+}
+function pianoFingeringTable(root, type) {
+  const rows = pianoInversions(root, type).map((v) => ({ ...v, f: pianoFingering(v.notes) }));
+  const wide = rows.some((r) => r.f.wide);
+  return `<table class="seg-table pk-fing"><tr><th></th><th>由低到高</th><th>右手</th><th>左手</th></tr>
+    ${rows.map((r) => `<tr><th>${r.name}</th><td>${r.names.join(' ')}</td><td>${r.f.rh.join('-')}</td><td>${r.f.lh.join('-')}</td></tr>`).join('')}</table>
+    <p class="muted small">數字是手指：1 拇指、2 食指、3 中指、4 無名指、5 小指，順序和音一樣由低到高。右手拇指彈最低音，左手小指彈最低音；音與音距離較大的地方，就隔開一根手指。${wide ? '這個和弦跨過八度，手小的話可以把 9 移到根音上方，彈 R–9–3–5（右手 1-2-3-5）。' : ''}</p>`;
+}
+
 // ---------- guitar ----------
 const STRINGS = [6, 5, 4, 3, 2, 1];
 // Chord-chart figure from frets (strings 6 → 1, null = not played), labelled by degree.
@@ -90,6 +134,25 @@ function chart(frets, root, type, caption) {
     return { s, f, kind: f === 0 ? 'open' : d === 'R' ? 'root' : 'tone', label: d };
   });
   return { caption, fig: { from, frets: Math.max(4, top - from), vertical: true, marks, label: caption } };
+}
+// When a full shape cannot be fretted, keep the largest run of adjacent strings that
+// can (span ≤ 3 frets, ≤ 4 fingers) and still holds the root and the 3rd, preferring
+// one with the root in the bass. Returns { frets, dropped } or null.
+function playablePart(frets, root, tones, required) {
+  const played = [0, 1, 2, 3, 4, 5].filter((k) => frets[k] !== null);
+  let best = null;
+  for (let a = 0; a < played.length; a++) {
+    for (let b = a + 2; b < played.length; b++) {
+      const keep = played.slice(a, b + 1);
+      if (keep[keep.length - 1] - keep[0] !== keep.length - 1) continue;
+      const fr = frets.map((f, k) => (keep.includes(k) ? f : null));
+      const c = checkVoicing(fr, root, tones, required);
+      if (!c.ok || c.span > 3) continue;
+      const score = keep.length * 2 + (c.bass === 0 ? 1 : 0);
+      if (!best || score > best.score) best = { frets: fr, score, dropped: played.filter((k) => !keep.includes(k)).map((k) => STRINGS[k]) };
+    }
+  }
+  return best;
 }
 const QUALITY_KEY = { '': '', m: 'm', 7: '7', maj7: 'maj7', m7: 'm7' };
 
@@ -121,11 +184,17 @@ export function guitarSections(root, type) {
         return x;
       });
       if (fr.some((x) => x !== null && x < 0)) return null;
-      return chart(fr, root, type, `${name}：${sh} 型${b ? `（從第 ${b} 格起）` : '（開放）'}`);
+      const where = `${name}：${sh} 型${b ? `（從第 ${b} 格起）` : '（開放）'}`;
+      const tonesSemi = type.tones.map(([x]) => x);
+      const need = type.key === 'm' ? [0, 3] : [0, 4];
+      if (checkVoicing(fr, root, tonesSemi, need).ok) return chart(fr, root, type, where);
+      // e.g. the minor G and C shapes: the full six strings would need five fingers.
+      const part = playablePart(fr, root, tonesSemi, need);
+      return part && chart(part.frets, root, type, `${where}，不彈第 ${part.dropped.join('、')} 弦`);
     }).filter(Boolean);
     sections.push({
       title: 'CAGED 五個和弦位置',
-      note: type.key === 'm' ? '由大三和弦的五個指形把三度降半音推得；有些按法較吃力，可只彈其中三、四條弦。' : '依 C → A → G → E → D 的順序往高把位相接。',
+      note: type.key === 'm' ? '由大三和弦的五個指形把三度降半音推得。G 型與 C 型降半音後六條弦按不完，所以只留下按得到的幾條弦。' : '依 C → A → G → E → D 的順序往高把位相接。',
       figs,
     });
   }
@@ -147,9 +216,13 @@ export function guitarSections(root, type) {
   // Shell voicings.
   if (['maj7', '7', 'm7'].includes(type.key)) {
     const figs = [6, 5].map((rs) => {
-      let rf = mod12(root - OPEN[rs]);
-      if (rf < 2) rf += 12;
-      const { third, seventh } = shellFrets(rs, rf, type.key);
+      // Lowest root fret where the 3rd and 7th are fretted (not open) right beside it:
+      // F7 stays at fret 1, but B♭m7 on string 5 moves up to fret 13.
+      let rf = mod12(root - OPEN[rs]) || 12;
+      let sh = shellFrets(rs, rf, type.key);
+      const near = ({ third, seventh }) => [third[1], seventh[1]].every((f) => f >= 1 && Math.abs(f - rf) <= 2);
+      if (!near(sh)) { rf += 12; sh = shellFrets(rs, rf, type.key); }
+      const { third, seventh } = sh;
       const frets = STRINGS.map((s) => (s === rs ? rf : s === third[0] ? third[1] : s === seventh[0] ? seventh[1] : null));
       return chart(frets, root, type, `殼和弦（根音在第 ${rs} 弦）`);
     });
@@ -197,7 +270,7 @@ export function renderChordLookup(el, { root = 0, key = '', onPlay, onBack } = {
       <p>公式 <b>${type.tones.map(([, , d]) => d).join('–')}</b>　組成音 <b>${names.join('、')}</b></p>
       <div class="row"><button class="btn" data-play="chord">${icon.play()}聽和弦</button><button class="btn" data-play="arp">${icon.play()}聽琶音</button></div>
     </section>
-    <section class="guide-sec"><h2>鋼琴</h2>${pianoSvg(root, type)}</section>
+    <section class="guide-sec"><h2>鋼琴</h2>${pianoSvg(root, type)}<h3>指法建議</h3>${pianoFingeringTable(root, type)}</section>
     ${sections.map((sec, i) => `<section class="guide-sec"><h2>吉他：${sec.title}</h2><p class="muted small">${sec.note}</p>
       <div class="guide-figs">${sec.figs.map((f, k) => `<figure><div class="fb-wrap" data-lk="${i}-${k}"></div><figcaption>${f.caption}</figcaption></figure>`).join('')}</div></section>`).join('')}
   </article>`;
